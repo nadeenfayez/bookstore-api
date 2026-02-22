@@ -1,0 +1,40 @@
+[{
+    "id": 2,
+    "name": "Youssef Ahmed",
+    "email": "youahmed@gmail.com",
+    "password": "$2b$10$tIrlX7yItZWrXWgMn2MqnOzQ7/fq8b3BNnCg9EQtYLFqOAEP55fKm",
+    "role": "admin"
+}, {
+    "id": 3,
+    "name": "Nadeen Fayezz",
+    "email": "nfayezz@gmail.com",
+    "password": "$2b$10$jaOhIJ7Zm2SdQEcE7pwyVeDSt0UjcvL1wrF2QnXWpfYzJ9srwhvqG",
+    "role": "user"
+}, {
+    "id": 4,
+    "name": "Nadeen Fayezzz",
+    "email": "nfayezzz@gmail.com",
+    "password": "$2b$10$5UzhmjHGQiYI51Ek0D6Cje7T3XSMNcJAkJCqREx.S.VY.GAS7zTlW",
+    "role": "user"
+}, {
+    "id": 5,
+    "name": "Nadeen Fayezzz",
+    "email": "nfayezszz@gmail.com",
+    "password": "$2b$10$0AwMKWekTqBY5oTMGKBQVueFucE91DkKc6r7wdL.sgbDyAvkNkM1e",
+    "role": "user"
+}, {
+    "id": 6,
+    "name": "Moli Woli",
+    "email": "moli@gmail.com",
+    "role": "user"
+}, {
+    "id": 7,
+    "name": "alo",
+    "email": "alo@yahoo.com"
+}, {
+    "id": 8,
+    "name": "Nadeen Fayez",
+    "email": "nfayez@gmail.com",
+    "password": "$2b$10$ABHL7WrdvpGydOKTByWam.1SYX2gHNZysZPorI97D7xlfh.vmCCIe",
+    "role": "user"
+}]
