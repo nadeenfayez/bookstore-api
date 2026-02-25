@@ -2,22 +2,23 @@ const requireAuth = require("../../middlewares/authMiddleware");
 const requireRole = require("../../middlewares/roleMiddleware");
 const { getAllBooksController, getBookController, createBookController, deleteBookController, updateBookController } = require("./booksController");
 
+
 const express = require("express");
 
 const router = express.Router();
 
-router.use(requireAuth);
-router.use(requireRole('admin'));   //Should be signed in already to check his/her role
+router.use(requireAuth);    // Should be logged in already to check user role
 
-router.get("/", getAllBooksController);
+router.get("/", requireRole("admin", "user"), getAllBooksController);
 
-router.get("/:id", getBookController);
+router.get("/:id", requireRole("admin", "user"), getBookController);
 
-router.post("/", createBookController);
+// Admin endpoints
+router.post("/", requireRole('admin'), createBookController);
 
-router.delete("/:id", deleteBookController);
+router.delete("/:id", requireRole('admin'), deleteBookController);
 
-router.put("/:id", updateBookController);
+router.patch("/:id", requireRole('admin'), updateBookController);
 
 
 module.exports = router;

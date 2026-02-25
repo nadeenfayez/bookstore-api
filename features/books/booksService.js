@@ -26,19 +26,27 @@ const getBook = async (bookId) => {
 };
 
 const createBook = async (newBook) => {
-    if (!newBook?.title) throw new AppError("Book title is required!", 400);
+    const { title, author } = newBook;  // Whitelisting fields
 
-    const createdBook = await booksRepo.create(newBook);
+    const existingBook = await booksRepo.getByTitle(title);
+
+    if (existingBook) throw new AppError("Book title already exists!", 409);
+
+    const createdBook = await booksRepo.create({ title, author });
 
     return mapBook(createdBook);
 };
 
-const updateBook = async (bookId, updates) => { //Should I make the title mandatory here?
+const updateBook = async (bookId, updates) => {
     const existingBook = await booksRepo.getById(bookId);
 
     if (!existingBook) throw new AppError("Book is not found!", 404);
 
-    const updatedBook = await booksRepo.update(bookId, updates);
+    const { title, author } = updates;  // Whitelisting fields
+
+    if (await booksRepo.getByTitle(title)) throw new AppError("Book title already exists!", 409);
+
+    const updatedBook = await booksRepo.update(bookId, { title, author });
 
     return mapBook(updatedBook);
 };

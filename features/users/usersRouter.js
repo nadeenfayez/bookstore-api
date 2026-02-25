@@ -1,23 +1,29 @@
 const requireAuth = require("../../middlewares/authMiddleware");
 const requireRole = require("../../middlewares/roleMiddleware");
-const { getAllUsersController, getUserController, createUserController, deleteUserController, updateUserController } = require("./usersController");
+const { getAllUsersController, getUserController, createUserController, deleteUserController, updateProfileController, changePasswordController, changeRoleController } = require("./usersController");
+
 
 const express = require("express");
 
 const router = express.Router();
 
-router.use(requireAuth);
-router.use(requireRole("admin"));   //Should be signed in already to check his/her role
+router.use(requireAuth);    // Should be logged in already to check user role
 
-router.get("/", getAllUsersController);
+// Admin endpoints
+router.get("/", requireRole("admin"), getAllUsersController);
 
-router.get("/:id", getUserController);
+router.get("/:id", requireRole("admin"), getUserController);
 
-router.post("/", createUserController);
+router.post("/", requireRole("admin"), createUserController);
 
-router.delete("/:id", deleteUserController);
+router.delete("/:id", requireRole("admin"), deleteUserController);
 
-router.put("/:id", updateUserController);
+router.patch("/:id/role", requireRole("admin"), changeRoleController);
+
+// Self-service endpoints
+router.patch("/me", requireRole("admin", "user"), updateProfileController);
+
+router.patch("/me/password", requireRole("admin", "user"), changePasswordController);
 
 
 module.exports = router;

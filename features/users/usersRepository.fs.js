@@ -1,6 +1,7 @@
 const { usersFilePath } = require("../../configs/envConfigs");
 const jsonFileUtils = require("../../utils/jsonFileUtils");
 
+
 const getAll = async () => {
     const allUsers = await jsonFileUtils.readJson(usersFilePath);
     return allUsers;

@@ -1,6 +1,7 @@
 const { booksFilePath } = require("../../configs/envConfigs");
 const jsonFileUtils = require("../../utils/jsonFileUtils");
 
+
 const getAll = () => {
     const allBooks = jsonFileUtils.readJson(booksFilePath);
     return allBooks;
@@ -46,6 +47,7 @@ const delete_ = (bookId) => {
 
     return deletedBook;
 };
+
 
 module.exports = {
     getAll,

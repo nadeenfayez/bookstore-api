@@ -6,7 +6,7 @@ const requireAuth = (req, res, next) => {
 
     if (!token) throw new AppError("Missing access token!", 401);
 
-    // const token = authHeader.substring(7);
+    // const token = authHeader.substring(7);   // If token is in the authoriztion header not in http-only cookie
 
     try {
         const decoded = verifyToken(token);

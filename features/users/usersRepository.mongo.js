@@ -1,5 +1,6 @@
 const User = require("../../DB/models/user");
 
+
 const getAll = async () => {
     const allUsers = await User.find();
     return allUsers;
@@ -25,14 +26,14 @@ const getByGoogleOrEmail = async (userGoogleId, userEmail) => {
     return targetUser;
 };
 
-const create = async ({ googleId, name, email, password, avatar }) => { //Whitelisting fields //ask chatgpt should it be here or on the service and here be clean with just updates??
+const create = async (userData) => {
     // const createdUser = await User.create({ name, email, password });
-    const newUser = new User({ googleId, name, email, password, avatar });
+    const newUser = new User(userData);
     return await newUser.save();
 };
 
-const update = async (userId, { googleId, name, email, password, avatar }) => { //Whitelisting fields
-    const updatedUser = await User.findByIdAndUpdate(userId, { $set: { googleId, name, email, password, avatar } }, { new: true, runValidators: true });
+const update = async (userId, updates) => {
+    const updatedUser = await User.findByIdAndUpdate(userId, { $set: updates }, { new: true, runValidators: true });
     return updatedUser;
 };
 
