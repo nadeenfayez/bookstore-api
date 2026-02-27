@@ -24,7 +24,7 @@ const signUp = async (newUser) => {
 
     return {
         user: tokenPayload,
-        token: authToken
+        accessToken: authToken
     }
 };
 
@@ -45,7 +45,7 @@ const login = async (credentials) => {
 
     return {
         user: tokenPayload,
-        token: authToken
+        accessToken: authToken
     }
 };
 
@@ -73,7 +73,7 @@ const findOrCreateGoogleUser = async (idToken) => {
 
     return {
         user: tokenPayload,
-        token: authToken
+        accessToken: authToken
     }
 };
 

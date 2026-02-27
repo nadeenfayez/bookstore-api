@@ -2,14 +2,14 @@ const { verifyToken } = require("../utils/jwtUtils");
 const AppError = require("../utils/AppError");
 
 const requireAuth = (req, res, next) => {
-    const token = req.cookies.token;
+    const authHeader = req.headers.authorization;
 
-    if (!token) throw new AppError("Missing access token!", 401);
+    const accessToken = authHeader?.substring(7);
 
-    // const token = authHeader.substring(7);   // If token is in the authoriztion header not in http-only cookie
+    if (!accessToken) throw new AppError("Missing access token!", 401);
 
     try {
-        const decoded = verifyToken(token);
+        const decoded = verifyToken(accessToken);
         req.currentUser = { id: decoded.id, name: decoded.name, email: decoded.email, role: decoded.role };
         next();
     }
