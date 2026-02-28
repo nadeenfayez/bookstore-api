@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const usersRepo = require("../users/usersRepository.mongo");
-const { generateToken } = require("../../utils/jwtUtils");
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../../utils/jwtUtils");
 const { bcryptSalt } = require("../../configs/envConfigs");
 const AppError = require("../../utils/AppError");
 const verifyGoogleToken = require("../../utils/googleVerify");
@@ -20,11 +20,18 @@ const signUp = async (newUser) => {
 
     const tokenPayload = mapUser(createdUser);
 
-    const authToken = generateToken(tokenPayload, createdUser.id);
+    const accessToken = generateAccessToken(tokenPayload, createdUser.id);
+
+    const refreshToken = generateRefreshToken(tokenPayload, createdUser.id);
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, +bcryptSalt);
+
+    await usersRepo.update(createdUser.id, { refreshToken: hashedRefreshToken });
 
     return {
         user: tokenPayload,
-        accessToken: authToken
+        accessToken,
+        refreshToken
     }
 };
 
@@ -41,11 +48,46 @@ const login = async (credentials) => {
 
     const tokenPayload = mapUser(existingUser);
 
-    const authToken = generateToken(tokenPayload, existingUser.id);
+    const accessToken = generateAccessToken(tokenPayload, existingUser.id);
+
+    const refreshToken = generateRefreshToken(tokenPayload, existingUser.id);
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, +bcryptSalt);
+
+    await usersRepo.update(existingUser.id, { refreshToken: hashedRefreshToken });
 
     return {
         user: tokenPayload,
-        accessToken: authToken
+        accessToken,
+        refreshToken
+    }
+};
+
+const refreshAccessToken = async (refreshToken) => {
+    const decoded = verifyRefreshToken(refreshToken);
+
+    const existingUser = await usersRepo.getById(decoded.id);
+
+    if (!existingUser) throw new AppError("User is not found!", 404);
+
+    const isMatch = await bcrypt.compare(refreshToken, existingUser.refreshToken);
+
+    if (!isMatch) throw new AppError("Invalid refresh token!", 401);
+
+    const tokenPayload = mapUser(existingUser);
+
+    const newAccessToken = generateAccessToken(tokenPayload, existingUser.id);
+
+    const newRefreshToken = generateRefreshToken(tokenPayload, existingUser.id);    // Rotation
+
+    const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, +bcryptSalt);
+
+    await usersRepo.update(existingUser.id, { refreshToken: hashedNewRefreshToken });
+
+    return {
+        user: tokenPayload,
+        newAccessToken,
+        newRefreshToken
     }
 };
 
@@ -69,17 +111,34 @@ const findOrCreateGoogleUser = async (idToken) => {
 
     const tokenPayload = mapUser(existingUser);
 
-    const authToken = generateToken(tokenPayload, existingUser.id);
+    const accessToken = generateAccessToken(tokenPayload, existingUser.id);
+
+    const refreshToken = generateRefreshToken(tokenPayload, existingUser.id);
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, +bcryptSalt);
+
+    await usersRepo.update(existingUser.id, { refreshToken: hashedRefreshToken });
 
     return {
         user: tokenPayload,
-        accessToken: authToken
+        accessToken,
+        refreshToken
     }
+};
+
+const logout = async (userId) => {
+    const existingUser = await usersRepo.getById(userId);
+
+    if (!existingUser) throw new AppError("User is not found!", 404);
+
+    await usersRepo.update(existingUser.id, { refreshToken: null });
 };
 
 
 module.exports = {
     signUp,
     login,
-    findOrCreateGoogleUser
+    refreshAccessToken,
+    findOrCreateGoogleUser,
+    logout
 };

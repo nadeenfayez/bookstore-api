@@ -48,7 +48,7 @@ const deleteUserController = handleAsyncError(async (req, res) => {
 });
 
 const updateProfileController = handleAsyncError(async (req, res) => {
-    const { id } = req.currentUser; //self-service endpoint
+    const { id } = req.currentUser; // Self-service endpoint
 
     if (!req.body.name && !req.body.avatar) throw new AppError("At least one field (name or avatar) is required!", 400); // HTTP-level validation
 
