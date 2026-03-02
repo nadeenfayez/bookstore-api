@@ -26,10 +26,23 @@ const getByGoogleOrEmail = async (userGoogleId, userEmail) => {
     return targetUser;
 };
 
+const getByRefreshToken = async (refreshToken) => {
+    const targetUser = await User.findOne({ "refreshTokens.tokenHash": refreshToken });
+    return targetUser;
+};
+
 const create = async (userData) => {
     // const createdUser = await User.create({ name, email, password });
     const newUser = new User(userData);
     return await newUser.save();
+};
+
+const bulkSave = async (userDoc) => {
+    return await userDoc.save();
+};
+
+const invalidateAllTokens = async (userId) => {
+    return await User.findByIdAndUpdate(userId, { $set: { refreshTokens: [] } }, { new: true, runValidators: true });;
 };
 
 const update = async (userId, updates) => {
@@ -37,7 +50,7 @@ const update = async (userId, updates) => {
     return updatedUser;
 };
 
-const delete_ = (userId) => {
+const delete_ = async (userId) => {
     const deletedUser = User.findByIdAndDelete(userId);
     return deletedUser;
 };
@@ -48,7 +61,10 @@ module.exports = {
     getById,
     getByEmail,
     getByGoogleOrEmail,
+    getByRefreshToken,
     create,
+    bulkSave,
+    invalidateAllTokens,
     update,
     delete_
 };

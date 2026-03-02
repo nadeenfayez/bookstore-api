@@ -1,13 +1,14 @@
 const bcrypt = require("bcryptjs");
 const usersRepo = require("../users/usersRepository.mongo");
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../../utils/jwtUtils");
-const { bcryptSalt } = require("../../configs/envConfigs");
+const { bcryptSalt, unixRefreshExpiry } = require("../../configs/envConfigs");
 const AppError = require("../../utils/AppError");
 const verifyGoogleToken = require("../../utils/googleVerify");
 const { mapUser } = require("../users/usersService");
+const { hashRefreshToken } = require("../../utils/refreshTokenUtils");
 
 
-const signUp = async (newUser) => {
+const signUp = async (newUser, req) => {
     const { name, email, password, avatar } = newUser;  // Whitelisting fields
 
     if (await usersRepo.getByEmail(email)) {
@@ -24,9 +25,18 @@ const signUp = async (newUser) => {
 
     const refreshToken = generateRefreshToken(tokenPayload, createdUser.id);
 
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, +bcryptSalt);
+    const RefreshTokenHash = hashRefreshToken(refreshToken);
 
-    await usersRepo.update(createdUser.id, { refreshToken: hashedRefreshToken });
+    // await usersRepo.update(createdUser.id, { refreshToken: RefreshTokenHash });
+
+    createdUser.refreshTokens.push({
+        tokenHash: RefreshTokenHash,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + +unixRefreshExpiry),
+        ip: req.ip
+    });
+
+    await usersRepo.bulkSave(createdUser);
 
     return {
         user: tokenPayload,
@@ -35,7 +45,7 @@ const signUp = async (newUser) => {
     }
 };
 
-const login = async (credentials) => {
+const login = async (credentials, req) => {
     const existingUser = await usersRepo.getByEmail(credentials.email);
 
     if (!existingUser) throw new AppError("Invalid email or password!", 401);
@@ -52,9 +62,18 @@ const login = async (credentials) => {
 
     const refreshToken = generateRefreshToken(tokenPayload, existingUser.id);
 
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, +bcryptSalt);
+    const RefreshTokenHash = hashRefreshToken(refreshToken);
 
-    await usersRepo.update(existingUser.id, { refreshToken: hashedRefreshToken });
+    // await usersRepo.update(existingUser.id, { refreshToken: RefreshTokenHash });
+
+    existingUser.refreshTokens.push({
+        tokenHash: RefreshTokenHash,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + +unixRefreshExpiry),
+        ip: req.ip
+    });
+
+    await usersRepo.bulkSave(existingUser);
 
     return {
         user: tokenPayload,
@@ -63,16 +82,27 @@ const login = async (credentials) => {
     }
 };
 
-const refreshAccessToken = async (refreshToken) => {
+const refreshAccessToken = async (refreshToken, req) => {
     const decoded = verifyRefreshToken(refreshToken);
 
     const existingUser = await usersRepo.getById(decoded.id);
 
     if (!existingUser) throw new AppError("User is not found!", 404);
 
-    const isMatch = await bcrypt.compare(refreshToken, existingUser.refreshToken);
+    const refreshTokenHash = hashRefreshToken(refreshToken);
 
-    if (!isMatch) throw new AppError("Invalid refresh token!", 401);
+    // const existingUser = await usersRepo.getByRefreshToken(refreshTokenHash);
+
+    const refreshFound = existingUser.refreshTokens.find(rt => rt.tokenHash === refreshTokenHash);
+
+    if (!refreshFound) {
+        await usersRepo.invalidateAllTokens(existingUser.id);
+        throw new AppError("Refresh token reuse detected!", 403);   // Reuse detection
+    }
+
+    // if (!existingUser) throw new AppError("Refresh token reuse detected!", 403); // Reuse detection
+
+    existingUser.refreshTokens = existingUser.refreshTokens.filter(rt => rt.tokenHash !== refreshTokenHash);    // Remove old token (rotation)
 
     const tokenPayload = mapUser(existingUser);
 
@@ -80,18 +110,24 @@ const refreshAccessToken = async (refreshToken) => {
 
     const newRefreshToken = generateRefreshToken(tokenPayload, existingUser.id);    // Rotation
 
-    const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, +bcryptSalt);
+    const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
 
-    await usersRepo.update(existingUser.id, { refreshToken: hashedNewRefreshToken });
+    existingUser.refreshTokens.push({
+        tokenHash: newRefreshTokenHash,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + +unixRefreshExpiry),
+        ip: req.ip
+    });
+
+    await usersRepo.bulkSave(existingUser);
 
     return {
-        user: tokenPayload,
         newAccessToken,
         newRefreshToken
     }
 };
 
-const findOrCreateGoogleUser = async (idToken) => {
+const findOrCreateGoogleUser = async (idToken, req) => {
     const googleData = await verifyGoogleToken(idToken);
 
     if (!googleData.emailVerified) throw new AppError("Email is not verified!", 401);
@@ -115,9 +151,16 @@ const findOrCreateGoogleUser = async (idToken) => {
 
     const refreshToken = generateRefreshToken(tokenPayload, existingUser.id);
 
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, +bcryptSalt);
+    const RefreshTokenHash = hashRefreshToken(refreshToken);
 
-    await usersRepo.update(existingUser.id, { refreshToken: hashedRefreshToken });
+    existingUser.refreshTokens.push({
+        tokenHash: RefreshTokenHash,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + +unixRefreshExpiry),
+        ip: req.ip
+    });
+
+    await usersRepo.bulkSave(existingUser);
 
     return {
         user: tokenPayload,

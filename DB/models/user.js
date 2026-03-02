@@ -32,10 +32,14 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: false
     },
-    refreshToken: {
-        type: String,
-        required: false
-    }
+    refreshTokens: [
+        {
+            tokenHash: String,
+            createdAt: Date,
+            expiresAt: Date,
+            ip: String
+        }
+    ]
 },
     {
         timestamps: true

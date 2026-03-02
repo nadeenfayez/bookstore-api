@@ -2,10 +2,11 @@ process.loadEnvFile();
 
 const PORT = process.env.PORT || 3000;
 const bcryptSalt = process.env.BCRYPT_SALT;
-const jwtSecret = process.env.JWT_SECRET;
-const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
-const jwtExpiresIn = process.env.JWT_EXPIRES_IN;
-const jwtRefreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN;
+const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
+const accessTokenExpiry = process.env.ACCESS_TOKEN_EXPIRY;
+const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+const refreshTokenExpiry = process.env.REFRESH_TOKEN_EXPIRY;
+const unixRefreshExpiry = process.env.UNIX_REFRESH_EXPIRY;
 const booksFilePath = process.env.BOOKS_FILE_PATH;
 const usersFilePath = process.env.USERS_FILE_PATH;
 const mode = process.env.MODE;
@@ -17,10 +18,11 @@ const DBType = process.env.DB_TYPE;
 module.exports = {
     PORT,
     bcryptSalt,
-    jwtSecret,
-    jwtRefreshSecret,
-    jwtExpiresIn,
-    jwtRefreshExpiresIn,
+    accessTokenSecret,
+    accessTokenExpiry,
+    refreshTokenSecret,
+    refreshTokenExpiry,
+    unixRefreshExpiry,
     booksFilePath,
     usersFilePath,
     mode,

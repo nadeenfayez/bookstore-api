@@ -1,29 +1,29 @@
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-const { jwtSecret, jwtExpiresIn, jwtRefreshSecret, jwtRefreshExpiresIn } = require("../configs/envConfigs");
+const { accessTokenSecret, accessTokenExpiry, refreshTokenSecret, refreshTokenExpiry } = require("../configs/envConfigs");
 
 const generateAccessToken = (payload, userId) => {
-    return jwt.sign(payload, jwtSecret, {
-        expiresIn: jwtExpiresIn,
+    return jwt.sign(payload, accessTokenSecret, {
+        expiresIn: accessTokenExpiry,
         issuer: "bookstore-api",
         subject: String(userId)
     });
 }
 
 const generateRefreshToken = (payload, userId) => {
-    return jwt.sign(payload, jwtRefreshSecret, {
-        expiresIn: jwtRefreshExpiresIn,
+    // return crypto.randomBytes(64).toString("hex");
+    return jwt.sign(payload, refreshTokenSecret, {
+        expiresIn: refreshTokenExpiry,
         issuer: "bookstore-api",
         subject: String(userId)
     });
 }
 
 const verifyAccessToken = (accessToken) => {
-    return jwt.verify(accessToken, jwtSecret);
+    return jwt.verify(accessToken, accessTokenSecret);
 };
 
 const verifyRefreshToken = (refreshtoken) => {
-    return jwt.verify(refreshtoken, jwtRefreshSecret);
+    return jwt.verify(refreshtoken, refreshTokenSecret);
 };
 
 
