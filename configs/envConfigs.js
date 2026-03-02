@@ -6,7 +6,7 @@ const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const accessTokenExpiry = process.env.ACCESS_TOKEN_EXPIRY;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
 const refreshTokenExpiry = process.env.REFRESH_TOKEN_EXPIRY;
-const unixRefreshExpiry = process.env.UNIX_REFRESH_EXPIRY;
+const refreshTokenTtlMs = process.env.REFRESH_TOKEN_TTL_MS;
 const booksFilePath = process.env.BOOKS_FILE_PATH;
 const usersFilePath = process.env.USERS_FILE_PATH;
 const mode = process.env.MODE;
@@ -22,7 +22,7 @@ module.exports = {
     accessTokenExpiry,
     refreshTokenSecret,
     refreshTokenExpiry,
-    unixRefreshExpiry,
+    refreshTokenTtlMs,
     booksFilePath,
     usersFilePath,
     mode,

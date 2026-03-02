@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const { accessTokenSecret, accessTokenExpiry, refreshTokenSecret, refreshTokenExpiry } = require("../configs/envConfigs");
 
+
 const generateAccessToken = (payload, userId) => {
     return jwt.sign(payload, accessTokenSecret, {
         expiresIn: accessTokenExpiry,
@@ -10,7 +11,7 @@ const generateAccessToken = (payload, userId) => {
 }
 
 const generateRefreshToken = (payload, userId) => {
-    // return crypto.randomBytes(64).toString("hex");
+    // return crypto.randomBytes(64).toString("hex");   // Opaque approach
     return jwt.sign(payload, refreshTokenSecret, {
         expiresIn: refreshTokenExpiry,
         issuer: "bookstore-api",

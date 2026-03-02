@@ -1,3 +1,4 @@
+const { refreshTokenTtlMs } = require("../../configs/envConfigs");
 const handleAsyncError = require("../../middlewares/handleAsyncError");
 const AppError = require("../../utils/AppError");
 const authService = require("./authService");
@@ -16,7 +17,8 @@ const signUpController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh"
+        path: "/api/v1/auth/refresh",
+        maxAge: +refreshTokenTtlMs
     });
 
     res.status(201).json({
@@ -39,7 +41,8 @@ const loginController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh"
+        path: "/api/v1/auth/refresh",
+        maxAge: +refreshTokenTtlMs
     });
 
     res.status(200).json({
@@ -60,7 +63,8 @@ const refreshController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh"
+        path: "/api/v1/auth/refresh",
+        maxAge: +refreshTokenTtlMs
     });
 
     res.status(200).json({
@@ -80,7 +84,8 @@ const googleLoginController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh"
+        path: "/api/v1/auth/refresh",
+        maxAge: +refreshTokenTtlMs
     });
 
     res.status(200).json({
@@ -99,7 +104,8 @@ const logoutController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh"
+        path: "/api/v1/auth/refresh",
+        maxAge: +refreshTokenTtlMs
     });
 
     res.sendStatus(204);

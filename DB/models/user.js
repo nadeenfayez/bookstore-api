@@ -37,7 +37,8 @@ const userSchema = new mongoose.Schema({
             tokenHash: String,
             createdAt: Date,
             expiresAt: Date,
-            ip: String
+            ip: String,
+            userAgent: String
         }
     ]
 },

@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const usersRepo = require("../users/usersRepository.mongo");
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../../utils/jwtUtils");
-const { bcryptSalt, unixRefreshExpiry } = require("../../configs/envConfigs");
+const { bcryptSalt, refreshTokenTtlMs } = require("../../configs/envConfigs");
 const AppError = require("../../utils/AppError");
 const verifyGoogleToken = require("../../utils/googleVerify");
 const { mapUser } = require("../users/usersService");
@@ -32,8 +32,9 @@ const signUp = async (newUser, req) => {
     createdUser.refreshTokens.push({
         tokenHash: RefreshTokenHash,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + +unixRefreshExpiry),
-        ip: req.ip
+        expiresAt: new Date(Date.now() + +refreshTokenTtlMs),
+        ip: req.ip,
+        userAgent: req.get("user-agent")
     });
 
     await usersRepo.bulkSave(createdUser);
@@ -69,8 +70,9 @@ const login = async (credentials, req) => {
     existingUser.refreshTokens.push({
         tokenHash: RefreshTokenHash,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + +unixRefreshExpiry),
-        ip: req.ip
+        expiresAt: new Date(Date.now() + +refreshTokenTtlMs),
+        ip: req.ip,
+        userAgent: req.get("user-agent")
     });
 
     await usersRepo.bulkSave(existingUser);
@@ -115,8 +117,9 @@ const refreshAccessToken = async (refreshToken, req) => {
     existingUser.refreshTokens.push({
         tokenHash: newRefreshTokenHash,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + +unixRefreshExpiry),
-        ip: req.ip
+        expiresAt: new Date(Date.now() + +refreshTokenTtlMs),
+        ip: req.ip,
+        userAgent: req.get("user-agent")
     });
 
     await usersRepo.bulkSave(existingUser);
@@ -156,8 +159,9 @@ const findOrCreateGoogleUser = async (idToken, req) => {
     existingUser.refreshTokens.push({
         tokenHash: RefreshTokenHash,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + +unixRefreshExpiry),
-        ip: req.ip
+        expiresAt: new Date(Date.now() + +refreshTokenTtlMs),
+        ip: req.ip,
+        userAgent: req.get("user-agent")
     });
 
     await usersRepo.bulkSave(existingUser);
