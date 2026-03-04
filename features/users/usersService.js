@@ -33,9 +33,11 @@ const createUser = async (newUser) => {
 
     if (await usersRepo.getByEmail(email)) throw new AppError("Email is already in use!", 409);
 
-    const hashedPassword = bcrypt.hashSync(password, +bcryptSalt);
+    const hashedPassword = bcrypt.hashSync(password, bcryptSalt);
 
-    const createdUser = await usersRepo.create({ name, email, password: hashedPassword, avatar });
+    const createdUser = usersRepo.create({ name, email, password: hashedPassword, avatar });
+
+    await usersRepo.bulkSave(createdUser);
 
     return mapUser(createdUser);
 };
@@ -58,7 +60,7 @@ const changePassword = async (userId, oldPassword, newPassword) => {
     if (!existingUser) throw new AppError("User is not found!", 404);
 
     if (existingUser.googleId && !existingUser.password) {  // First-time password set (Google user)
-        const hashedPassword = await bcrypt.hash(newPassword, +bcryptSalt);
+        const hashedPassword = await bcrypt.hash(newPassword, bcryptSalt);
 
         const updatedUser = await usersRepo.update(userId, { password: hashedPassword });
 
@@ -75,7 +77,7 @@ const changePassword = async (userId, oldPassword, newPassword) => {
 
     if (isSame) throw new AppError("New password must be different!", 400);
 
-    const hashedPassword = await bcrypt.hash(newPassword, +bcryptSalt);
+    const hashedPassword = await bcrypt.hash(newPassword, bcryptSalt);
 
     const updatedUser = await usersRepo.update(userId, { password: hashedPassword });;
 

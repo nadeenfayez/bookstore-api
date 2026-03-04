@@ -31,10 +31,10 @@ const getByRefreshToken = async (refreshToken) => {
     return targetUser;
 };
 
-const create = async (userData) => {
-    // const createdUser = await User.create({ name, email, password });
-    const newUser = new User(userData);
-    return await newUser.save();
+const create = (userData) => {
+    // const createdUser = await User.create(userData);
+    return new User(userData);
+    // return await newUser.save();
 };
 
 const bulkSave = async (userDoc) => {

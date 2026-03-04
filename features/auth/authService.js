@@ -1,23 +1,21 @@
 const bcrypt = require("bcryptjs");
 const usersRepo = require("../users/usersRepository.mongo");
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../../utils/jwtUtils");
-const { bcryptSalt, refreshTokenTtlMs } = require("../../configs/envConfigs");
+const { bcryptSalt } = require("../../configs/envConfigs");
 const AppError = require("../../utils/AppError");
 const verifyGoogleToken = require("../../utils/googleVerify");
 const { mapUser } = require("../users/usersService");
-const { hashRefreshToken } = require("../../utils/refreshTokenUtils");
+const { hashRefreshToken, addRefreshToken } = require("../../utils/refreshTokenUtils");
 
 
 const signUp = async (newUser, req) => {
     const { name, email, password, avatar } = newUser;  // Whitelisting fields
 
-    if (await usersRepo.getByEmail(email)) {
-        throw new AppError("Email is already in use!", 409);
-    }
+    if (await usersRepo.getByEmail(email)) throw new AppError("Email is already in use!", 409);
 
-    const hashedPassword = await bcrypt.hash(password, +bcryptSalt);
+    const hashedPassword = await bcrypt.hash(password, bcryptSalt);
 
-    const createdUser = await usersRepo.create({ name, email, password: hashedPassword, avatar });
+    const createdUser = usersRepo.create({ name, email, password: hashedPassword, avatar });
 
     const tokenPayload = mapUser(createdUser);
 
@@ -25,17 +23,9 @@ const signUp = async (newUser, req) => {
 
     const refreshToken = generateRefreshToken(tokenPayload, createdUser.id);
 
-    const RefreshTokenHash = hashRefreshToken(refreshToken);
+    const refreshTokenHash = hashRefreshToken(refreshToken);
 
-    // await usersRepo.update(createdUser.id, { refreshToken: RefreshTokenHash });
-
-    createdUser.refreshTokens.push({
-        tokenHash: RefreshTokenHash,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + +refreshTokenTtlMs),
-        ip: req.ip,
-        userAgent: req.get("user-agent")
-    });
+    addRefreshToken(createdUser, refreshTokenHash, req);
 
     await usersRepo.bulkSave(createdUser);
 
@@ -63,17 +53,9 @@ const login = async (credentials, req) => {
 
     const refreshToken = generateRefreshToken(tokenPayload, existingUser.id);
 
-    const RefreshTokenHash = hashRefreshToken(refreshToken);
+    const refreshTokenHash = hashRefreshToken(refreshToken);
 
-    // await usersRepo.update(existingUser.id, { refreshToken: RefreshTokenHash });
-
-    existingUser.refreshTokens.push({
-        tokenHash: RefreshTokenHash,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + +refreshTokenTtlMs),
-        ip: req.ip,
-        userAgent: req.get("user-agent")
-    });
+    addRefreshToken(existingUser, refreshTokenHash, req);
 
     await usersRepo.bulkSave(existingUser);
 
@@ -84,45 +66,31 @@ const login = async (credentials, req) => {
     }
 };
 
-const refreshAccessToken = async (refreshToken, req) => {
-    const decoded = verifyRefreshToken(refreshToken);
-
-    const existingUser = await usersRepo.getById(decoded.id);
-
-    if (!existingUser) throw new AppError("User is not found!", 404);
-
+const refreshAccessToken = async (refreshToken, req) => {   // Rotate a valid session
     const refreshTokenHash = hashRefreshToken(refreshToken);
 
-    // const existingUser = await usersRepo.getByRefreshToken(refreshTokenHash);
+    const tokenDoc = await usersRepo.getByRefreshToken(refreshTokenHash);   //DB is the source of truth (check it first)
 
-    const refreshFound = existingUser.refreshTokens.find(rt => rt.tokenHash === refreshTokenHash);
+    const decoded = verifyRefreshToken(refreshToken);
 
-    if (!refreshFound) {
-        await usersRepo.invalidateAllTokens(existingUser.id);
-        throw new AppError("Refresh token reuse detected!", 403);   // Reuse detection
+    if (!tokenDoc) {    // Reuse detection
+        await usersRepo.invalidateAllTokens(decoded.id);
+        throw new AppError("Refresh token reuse detected!", 403);
     }
 
-    // if (!existingUser) throw new AppError("Refresh token reuse detected!", 403); // Reuse detection
+    tokenDoc.refreshTokens = tokenDoc.refreshTokens.filter(rt => rt.tokenHash !== refreshTokenHash);    // Remove old token (rotation)
 
-    existingUser.refreshTokens = existingUser.refreshTokens.filter(rt => rt.tokenHash !== refreshTokenHash);    // Remove old token (rotation)
+    const tokenPayload = mapUser(tokenDoc);
 
-    const tokenPayload = mapUser(existingUser);
+    const newAccessToken = generateAccessToken(tokenPayload, tokenDoc.id);
 
-    const newAccessToken = generateAccessToken(tokenPayload, existingUser.id);
-
-    const newRefreshToken = generateRefreshToken(tokenPayload, existingUser.id);    // Rotation
+    const newRefreshToken = generateRefreshToken(tokenPayload, tokenDoc.id);    // Rotation
 
     const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
 
-    existingUser.refreshTokens.push({
-        tokenHash: newRefreshTokenHash,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + +refreshTokenTtlMs),
-        ip: req.ip,
-        userAgent: req.get("user-agent")
-    });
+    addRefreshToken(tokenDoc, newRefreshTokenHash, req);
 
-    await usersRepo.bulkSave(existingUser);
+    await usersRepo.bulkSave(tokenDoc);
 
     return {
         newAccessToken,
@@ -138,7 +106,7 @@ const findOrCreateGoogleUser = async (idToken, req) => {
     let existingUser = await usersRepo.getByGoogleOrEmail(googleData.googleId, googleData.email);   // Strong identity check (email is mutable but Google ID (sub) is not) => Identity correctness
 
     if (!existingUser) {
-        existingUser = await usersRepo.create({
+        existingUser = usersRepo.create({
             googleId: googleData.googleId,
             name: googleData.name,
             email: googleData.email,
@@ -146,7 +114,10 @@ const findOrCreateGoogleUser = async (idToken, req) => {
         });
     }
 
-    if (!existingUser.googleId) existingUser = await usersRepo.update(existingUser.id, { googleId: googleData.googleId, avatar: googleData.picture });  // Account linking
+    if (!existingUser.googleId) {   // Account linking
+        existingUser.googleId = googleData.googleId;
+        existingUser.avatar = googleData.picture;
+    }
 
     const tokenPayload = mapUser(existingUser);
 
@@ -154,15 +125,9 @@ const findOrCreateGoogleUser = async (idToken, req) => {
 
     const refreshToken = generateRefreshToken(tokenPayload, existingUser.id);
 
-    const RefreshTokenHash = hashRefreshToken(refreshToken);
+    const refreshTokenHash = hashRefreshToken(refreshToken);
 
-    existingUser.refreshTokens.push({
-        tokenHash: RefreshTokenHash,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + +refreshTokenTtlMs),
-        ip: req.ip,
-        userAgent: req.get("user-agent")
-    });
+    addRefreshToken(existingUser, refreshTokenHash, req);
 
     await usersRepo.bulkSave(existingUser);
 
@@ -173,12 +138,24 @@ const findOrCreateGoogleUser = async (idToken, req) => {
     }
 };
 
-const logout = async (userId) => {
+const logout = async (refreshToken) => {
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+
+    const tokenDoc = await usersRepo.getByRefreshToken(refreshTokenHash);
+
+    if (!tokenDoc) return;
+
+    tokenDoc.refreshTokens = tokenDoc.refreshTokens.filter(rt => rt.tokenHash !== refreshTokenHash);    // Logout from this device only
+
+    await usersRepo.bulkSave(tokenDoc);
+};
+
+const logoutAll = async (userId) => {
     const existingUser = await usersRepo.getById(userId);
 
     if (!existingUser) throw new AppError("User is not found!", 404);
 
-    await usersRepo.update(existingUser.id, { refreshToken: null });
+    await usersRepo.update(existingUser.id, { refreshTokens: [] });
 };
 
 
@@ -187,5 +164,6 @@ module.exports = {
     login,
     refreshAccessToken,
     findOrCreateGoogleUser,
-    logout
+    logout,
+    logoutAll
 };

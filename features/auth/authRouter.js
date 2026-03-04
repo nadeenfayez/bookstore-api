@@ -1,5 +1,5 @@
 const requireAuth = require("../../middlewares/authMiddleware");
-const { signUpController, loginController, googleLoginController, refreshController, logoutController } = require("./authController");
+const { signUpController, loginController, googleLoginController, refreshController, logoutAllController } = require("./authController");
 
 
 const express = require("express");
@@ -17,7 +17,7 @@ router.post("/refresh", refreshController);
 
 
 // Authenticated routes
-router.post("/logout", requireAuth, logoutController);  // Self-service endpoint
+router.post("/logout-all", requireAuth, logoutAllController);  // Self-service endpoint
 
 
 module.exports = router;

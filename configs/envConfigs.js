@@ -1,12 +1,13 @@
 process.loadEnvFile();
 
 const PORT = process.env.PORT || 3000;
-const bcryptSalt = process.env.BCRYPT_SALT;
+const bcryptSalt = +process.env.BCRYPT_SALT;
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const accessTokenExpiry = process.env.ACCESS_TOKEN_EXPIRY;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
 const refreshTokenExpiry = process.env.REFRESH_TOKEN_EXPIRY;
-const refreshTokenTtlMs = process.env.REFRESH_TOKEN_TTL_MS;
+const refreshTokenTtlMs = +process.env.REFRESH_TOKEN_TTL_MS;
+const maxRefreshTokens = +process.env.MAX_REFRESH_TOKENS || 5;
 const booksFilePath = process.env.BOOKS_FILE_PATH;
 const usersFilePath = process.env.USERS_FILE_PATH;
 const mode = process.env.MODE;
@@ -23,6 +24,7 @@ module.exports = {
     refreshTokenSecret,
     refreshTokenExpiry,
     refreshTokenTtlMs,
+    maxRefreshTokens,
     booksFilePath,
     usersFilePath,
     mode,

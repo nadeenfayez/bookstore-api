@@ -1,6 +1,7 @@
 const { verifyAccessToken } = require("../utils/jwtUtils");
 const AppError = require("../utils/AppError");
 
+
 const requireAuth = (req, res, next) => {
     const authHeader = req?.headers?.authorization;
 

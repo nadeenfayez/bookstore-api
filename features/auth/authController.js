@@ -17,8 +17,8 @@ const signUpController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh",
-        maxAge: +refreshTokenTtlMs
+        path: "/api/v1/auth",
+        maxAge: refreshTokenTtlMs
     });
 
     res.status(201).json({
@@ -41,8 +41,8 @@ const loginController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh",
-        maxAge: +refreshTokenTtlMs
+        path: "/api/v1/auth",
+        maxAge: refreshTokenTtlMs
     });
 
     res.status(200).json({
@@ -63,8 +63,8 @@ const refreshController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh",
-        maxAge: +refreshTokenTtlMs
+        path: "/api/v1/auth",
+        maxAge: refreshTokenTtlMs
     });
 
     res.status(200).json({
@@ -84,8 +84,8 @@ const googleLoginController = handleAsyncError(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh",
-        maxAge: +refreshTokenTtlMs
+        path: "/api/v1/auth",
+        maxAge: refreshTokenTtlMs
     });
 
     res.status(200).json({
@@ -96,16 +96,34 @@ const googleLoginController = handleAsyncError(async (req, res) => {
 });
 
 const logoutController = handleAsyncError(async (req, res) => {
-    const { id } = req.currentUser;
+    const { refreshToken } = req.cookies;
 
-    await authService.logout(id);
+    if (!refreshToken) return res.sendStatus(204);  // Idempotency
+
+    await authService.logout(refreshToken);
 
     res.clearCookie("refreshToken", {
         httpOnly: true,
         secure: true,
         sameSite: "strict",
-        path: "/api/v1/auth/refresh",
-        maxAge: +refreshTokenTtlMs
+        path: "/api/v1/auth",
+        maxAge: refreshTokenTtlMs
+    });
+
+    res.sendStatus(204);
+});
+
+const logoutAllController = handleAsyncError(async (req, res) => {
+    const { id } = req.currentUser;
+
+    await authService.logoutAll(id);
+
+    res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        path: "/api/v1/auth",
+        maxAge: refreshTokenTtlMs
     });
 
     res.sendStatus(204);
@@ -117,5 +135,6 @@ module.exports = {
     loginController,
     refreshController,
     googleLoginController,
-    logoutController
+    logoutController,
+    logoutAllController
 }
