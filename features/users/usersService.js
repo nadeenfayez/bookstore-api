@@ -92,7 +92,9 @@ const changePassword = async (userId, oldPassword, newPassword) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, bcryptSalt);
 
-    const updatedUser = await usersRepo.update(userId, { password: hashedPassword });;
+    const updatedUser = await usersRepo.update(userId, { password: hashedPassword });
+
+    await usersRepo.invalidateAllTokens(userId);    // Logout user from all devices
 
     return mapUser(updatedUser);
 };
