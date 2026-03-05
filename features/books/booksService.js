@@ -44,7 +44,9 @@ const updateBook = async (bookId, updates) => {
 
     const { title, author } = updates;  // Whitelisting fields
 
-    if (await booksRepo.getByTitle(title)) throw new AppError("Book title already exists!", 409);
+    if (title) {
+        if (await booksRepo.getByTitle(title)) throw new AppError("Book title already exists!", 409);
+    }
 
     const updatedBook = await booksRepo.update(bookId, { title, author });
 

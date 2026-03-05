@@ -151,11 +151,7 @@ const logout = async (refreshToken) => {
 };
 
 const logoutAll = async (userId) => {
-    const existingUser = await usersRepo.getById(userId);
-
-    if (!existingUser) throw new AppError("User is not found!", 404);
-
-    await usersRepo.update(existingUser.id, { refreshTokens: [] });
+    await usersRepo.invalidateAllTokens(userId);
 };
 
 
