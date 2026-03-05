@@ -28,6 +28,7 @@ const signUpController = handleAsyncError(async (req, res) => {
     });
 });
 
+
 const loginController = handleAsyncError(async (req, res) => {
     const credentials = req.body;
 
@@ -52,6 +53,7 @@ const loginController = handleAsyncError(async (req, res) => {
     });
 });
 
+
 const refreshController = handleAsyncError(async (req, res) => {
     const { refreshToken } = req.cookies;
 
@@ -72,6 +74,7 @@ const refreshController = handleAsyncError(async (req, res) => {
         newAccessToken
     });
 });
+
 
 const googleLoginController = handleAsyncError(async (req, res) => {
     const { idToken } = req.body;
@@ -95,6 +98,7 @@ const googleLoginController = handleAsyncError(async (req, res) => {
     });
 });
 
+
 const logoutController = handleAsyncError(async (req, res) => {
     const { refreshToken } = req.cookies;
 
@@ -112,6 +116,7 @@ const logoutController = handleAsyncError(async (req, res) => {
 
     res.sendStatus(204);
 });
+
 
 const logoutAllController = handleAsyncError(async (req, res) => {
     const { id } = req.currentUser;

@@ -17,6 +17,7 @@ const getAllBooks = async () => {
     return (await booksRepo.getAll()).map(mapBook);
 };
 
+
 const getBook = async (bookId) => {
     const existingBook = await booksRepo.getById(bookId);
 
@@ -24,6 +25,7 @@ const getBook = async (bookId) => {
 
     return mapBook(existingBook);
 };
+
 
 const createBook = async (newBook) => {
     const { title, author } = newBook;  // Whitelisting fields
@@ -36,6 +38,7 @@ const createBook = async (newBook) => {
 
     return mapBook(createdBook);
 };
+
 
 const updateBook = async (bookId, updates) => {
     const existingBook = await booksRepo.getById(bookId);
@@ -52,6 +55,7 @@ const updateBook = async (bookId, updates) => {
 
     return mapBook(updatedBook);
 };
+
 
 const deleteBook = async (bookId) => {
     const existingBook = await booksRepo.getById(bookId);

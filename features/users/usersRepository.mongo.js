@@ -32,9 +32,7 @@ const getByRefreshToken = async (refreshToken) => {
 };
 
 const create = (userData) => {
-    // const createdUser = await User.create(userData);
     return new User(userData);
-    // return await newUser.save();
 };
 
 const bulkSave = async (userDoc) => {
@@ -42,7 +40,7 @@ const bulkSave = async (userDoc) => {
 };
 
 const invalidateAllTokens = async (userId) => {
-    return await User.findByIdAndUpdate(userId, { $set: { refreshTokens: [] } }, { new: true, runValidators: true });;
+    return await User.findByIdAndUpdate(userId, { $set: { refreshTokens: [] } }, { new: true, runValidators: true });
 };
 
 const update = async (userId, updates) => {
@@ -50,8 +48,8 @@ const update = async (userId, updates) => {
     return updatedUser;
 };
 
-const delete_ = async (userId) => {
-    const deletedUser = User.findByIdAndDelete(userId);
+const deleteById = async (userId) => {
+    const deletedUser = await User.findByIdAndDelete(userId);
     return deletedUser;
 };
 
@@ -66,5 +64,5 @@ module.exports = {
     bulkSave,
     invalidateAllTokens,
     update,
-    delete_
+    deleteById
 };

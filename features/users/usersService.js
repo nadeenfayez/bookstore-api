@@ -20,6 +20,7 @@ const getAllUsers = async () => {
     return (await usersRepo.getAll()).map(mapUser);
 };
 
+
 const getUser = async (userId) => {
     const existingUser = await usersRepo.getById(userId);
 
@@ -27,6 +28,16 @@ const getUser = async (userId) => {
 
     return mapUser(existingUser);
 };
+
+
+const getProfile = async (userId) => {
+    const existingUser = await usersRepo.getById(userId);
+
+    if (!existingUser) throw new AppError("User is not found.", 404);
+
+    return mapUser(existingUser);
+};
+
 
 const createUser = async (newUser) => {
     const { name, email, password, avatar } = newUser;  // Whitelisting fields
@@ -42,6 +53,7 @@ const createUser = async (newUser) => {
     return mapUser(createdUser);
 };
 
+
 const updateProfile = async (userId, updates) => {
     const existingUser = await usersRepo.getById(userId);
 
@@ -53,6 +65,7 @@ const updateProfile = async (userId, updates) => {
 
     return mapUser(updatedUser);
 };
+
 
 const changePassword = async (userId, oldPassword, newPassword) => {
     const existingUser = await usersRepo.getById(userId);
@@ -84,6 +97,7 @@ const changePassword = async (userId, oldPassword, newPassword) => {
     return mapUser(updatedUser);
 };
 
+
 const changeRole = async (userId, newRole, adminId) => {
     const existingUser = await usersRepo.getById(userId);
 
@@ -101,12 +115,13 @@ const changeRole = async (userId, newRole, adminId) => {
     return mapUser(updatedUser);
 };
 
+
 const deleteUser = async (userId) => {
     const existingUser = await usersRepo.getById(userId);
 
     if (!existingUser) throw new AppError("User is not found.", 404);
 
-    const deletedUser = await usersRepo.delete_(userId);
+    const deletedUser = await usersRepo.deleteById(userId);
 
     return mapUser(deletedUser);
 };
@@ -115,6 +130,7 @@ const deleteUser = async (userId) => {
 module.exports = {
     getAllUsers,
     getUser,
+    getProfile,
     createUser,
     updateProfile,
     changePassword,

@@ -36,6 +36,7 @@ const signUp = async (newUser, req) => {
     }
 };
 
+
 const login = async (credentials, req) => {
     const existingUser = await usersRepo.getByEmail(credentials.email);
 
@@ -65,6 +66,7 @@ const login = async (credentials, req) => {
         refreshToken
     }
 };
+
 
 const refreshAccessToken = async (refreshToken, req) => {   // Rotate a valid session
     const refreshTokenHash = hashRefreshToken(refreshToken);
@@ -97,6 +99,7 @@ const refreshAccessToken = async (refreshToken, req) => {   // Rotate a valid se
         newRefreshToken
     }
 };
+
 
 const findOrCreateGoogleUser = async (idToken, req) => {
     const googleData = await verifyGoogleToken(idToken);
@@ -137,6 +140,7 @@ const findOrCreateGoogleUser = async (idToken, req) => {
         refreshToken
     }
 };
+
 
 const logout = async (refreshToken) => {
     const refreshTokenHash = hashRefreshToken(refreshToken);

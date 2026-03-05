@@ -12,6 +12,7 @@ const getAllUsersController = handleAsyncError(async (req, res) => {
     });
 });
 
+
 const getUserController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
 
@@ -22,6 +23,19 @@ const getUserController = handleAsyncError(async (req, res) => {
         user: targetUser
     });
 });
+
+
+const getProfileController = handleAsyncError(async (req, res) => {
+    const { id } = req.currentUser; // Self-service endpoint
+
+    const targetProfile = await userService.getProfile(id);
+
+    res.status(200).json({
+        success: true,
+        user: targetProfile
+    });
+});
+
 
 const createUserController = handleAsyncError(async (req, res) => {
     const newUser = req.body;
@@ -36,6 +50,7 @@ const createUserController = handleAsyncError(async (req, res) => {
     });
 });
 
+
 const deleteUserController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
 
@@ -46,6 +61,7 @@ const deleteUserController = handleAsyncError(async (req, res) => {
         user: deletedUser
     });
 });
+
 
 const updateProfileController = handleAsyncError(async (req, res) => {
     const { id } = req.currentUser; // Self-service endpoint
@@ -60,6 +76,7 @@ const updateProfileController = handleAsyncError(async (req, res) => {
     });
 });
 
+
 const changePasswordController = handleAsyncError(async (req, res) => {
     const { id } = req.currentUser; // Self-service endpoint
 
@@ -72,6 +89,7 @@ const changePasswordController = handleAsyncError(async (req, res) => {
         user: updatedUser
     });
 });
+
 
 const changeRoleController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
@@ -91,6 +109,7 @@ const changeRoleController = handleAsyncError(async (req, res) => {
 module.exports = {
     getAllUsersController,
     getUserController,
+    getProfileController,
     createUserController,
     deleteUserController,
     updateProfileController,

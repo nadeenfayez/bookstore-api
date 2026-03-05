@@ -12,6 +12,7 @@ const getAllBooksController = handleAsyncError(async (req, res) => {
     });
 });
 
+
 const getBookController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
 
@@ -22,6 +23,7 @@ const getBookController = handleAsyncError(async (req, res) => {
         book: targetBook
     });
 });
+
 
 const createBookController = handleAsyncError(async (req, res) => {
     const newBook = req.body;
@@ -36,6 +38,7 @@ const createBookController = handleAsyncError(async (req, res) => {
     });
 });
 
+
 const deleteBookController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
 
@@ -46,6 +49,7 @@ const deleteBookController = handleAsyncError(async (req, res) => {
         book: deletedBook
     });
 });
+
 
 const updateBookController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
