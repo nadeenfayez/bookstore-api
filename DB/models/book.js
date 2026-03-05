@@ -10,6 +10,20 @@ const bookSchema = new mongoose.Schema({
     author: {
         type: String,
         trim: true
+    },
+    price: {
+        amount: { type: Number, required: [true, "Price amount is required"], min: 0 },
+        currency: { type: String, required: true, default: "EGP", uppercase: true }
+    },
+    stockQty: {
+        type: Number,
+        required: true,
+        default: 0,
+        min: 0
+    },
+    isActive: {
+        type: Boolean,
+        default: true
     }
 },
     {
