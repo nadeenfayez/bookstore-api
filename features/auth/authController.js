@@ -8,7 +8,7 @@ const signUpController = handleAsyncError(async (req, res) => {
     const newUser = req.body;
 
     if (!newUser?.name || !newUser?.email || !newUser?.password) {  // HTTP-level validation
-        throw new AppError("Name & email & password are required!", 400);
+        throw new AppError("Name, email, and password are required.", 400);
     }
 
     const { user, accessToken, refreshToken } = await authService.signUp(newUser, req);
@@ -32,7 +32,7 @@ const loginController = handleAsyncError(async (req, res) => {
     const credentials = req.body;
 
     if (!credentials.email || !credentials.password) {    // HTTP-level validation
-        throw new AppError("Email & password are required!", 400);
+        throw new AppError("Email and password are required.", 400);
     }
 
     const { user, accessToken, refreshToken } = await authService.login(credentials, req);
@@ -55,7 +55,7 @@ const loginController = handleAsyncError(async (req, res) => {
 const refreshController = handleAsyncError(async (req, res) => {
     const { refreshToken } = req.cookies;
 
-    if (!refreshToken) throw new AppError("refreshToken is required!", 400);  // HTTP-level validation
+    if (!refreshToken) throw new AppError("Refresh token is required.", 400);  // HTTP-level validation
 
     const { newAccessToken, newRefreshToken } = await authService.refreshAccessToken(refreshToken, req);
 
@@ -76,7 +76,7 @@ const refreshController = handleAsyncError(async (req, res) => {
 const googleLoginController = handleAsyncError(async (req, res) => {
     const { idToken } = req.body;
 
-    if (!idToken) throw new AppError("idToken is required!", 400);  // HTTP-level validation
+    if (!idToken) throw new AppError("Google ID token is required.", 400);  // HTTP-level validation
 
     const { user, accessToken, refreshToken } = await authService.findOrCreateGoogleUser(idToken, req);
 

@@ -4,20 +4,27 @@ const { googleClientId } = require('../configs/envConfigs');
 const client = new OAuth2Client(googleClientId);
 
 const verifyGoogleToken = async (idToken) => {
-    const ticket = await client.verifyIdToken({
-        idToken,
-        audience: googleClientId
-    });
+    try {
+        const ticket = await client.verifyIdToken({
+            idToken,
+            audience: googleClientId
+        });
 
-    const payload = ticket.getPayload();
+        const payload = ticket.getPayload();
 
-    return {
-        googleId: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        picture: payload.picture,
-        emailVerified: payload.email_verified
+        return {
+            googleId: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+            emailVerified: payload.email_verified
+        }
     }
+    catch (err) {
+        console.error("Google token verification failed:", err);
+        throw new AppError("Invalid or expired Google token.", 401);
+    }
+
 };
 
 

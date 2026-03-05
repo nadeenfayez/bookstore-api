@@ -23,7 +23,7 @@ const getAllUsers = async () => {
 const getUser = async (userId) => {
     const existingUser = await usersRepo.getById(userId);
 
-    if (!existingUser) throw new AppError("User is not found!", 404);
+    if (!existingUser) throw new AppError("User is not found.", 404);
 
     return mapUser(existingUser);
 };
@@ -31,7 +31,7 @@ const getUser = async (userId) => {
 const createUser = async (newUser) => {
     const { name, email, password, avatar } = newUser;  // Whitelisting fields
 
-    if (await usersRepo.getByEmail(email)) throw new AppError("Email is already in use!", 409);
+    if (await usersRepo.getByEmail(email)) throw new AppError("Email is already in use.", 409);
 
     const hashedPassword = bcrypt.hashSync(password, bcryptSalt);
 
@@ -45,7 +45,7 @@ const createUser = async (newUser) => {
 const updateProfile = async (userId, updates) => {
     const existingUser = await usersRepo.getById(userId);
 
-    if (!existingUser) throw new AppError("User is not found!", 404);
+    if (!existingUser) throw new AppError("User is not found.", 404);
 
     const { name, avatar } = updates;  // Whitelisting fields
 
@@ -57,7 +57,7 @@ const updateProfile = async (userId, updates) => {
 const changePassword = async (userId, oldPassword, newPassword) => {
     const existingUser = await usersRepo.getById(userId);
 
-    if (!existingUser) throw new AppError("User is not found!", 404);
+    if (!existingUser) throw new AppError("User is not found.", 404);
 
     if (existingUser.googleId && !existingUser.password) {  // First-time password set (Google user)
         const hashedPassword = await bcrypt.hash(newPassword, bcryptSalt);
@@ -67,15 +67,15 @@ const changePassword = async (userId, oldPassword, newPassword) => {
         return mapUser(updatedUser);
     }
 
-    if (!oldPassword) throw new AppError("oldPassword is required to change your password!", 400);
+    if (!oldPassword) throw new AppError("Old password is required to change your password.", 400);
 
     const isMatch = await bcrypt.compare(oldPassword, existingUser.password);
 
-    if (!isMatch) throw new AppError("Old password is incorrect!", 401);
+    if (!isMatch) throw new AppError("Old password is incorrect.", 401);
 
     const isSame = await bcrypt.compare(newPassword, existingUser.password);    // Preventing same password reuse
 
-    if (isSame) throw new AppError("New password must be different!", 400);
+    if (isSame) throw new AppError("New password must be different.", 400);
 
     const hashedPassword = await bcrypt.hash(newPassword, bcryptSalt);
 
@@ -87,14 +87,14 @@ const changePassword = async (userId, oldPassword, newPassword) => {
 const changeRole = async (userId, newRole, adminId) => {
     const existingUser = await usersRepo.getById(userId);
 
-    if (!existingUser) throw new AppError("User is not found!", 404);
+    if (!existingUser) throw new AppError("User is not found.", 404);
 
     newRole = newRole.toLowerCase();
     const allowedRoles = ["admin", "user"];
 
-    if (!allowedRoles.includes(newRole)) throw new AppError("Invalid role!", 400);
+    if (!allowedRoles.includes(newRole)) throw new AppError("Invalid role.", 400);
 
-    if (userId == adminId) throw new AppError("Cannot change your own role!", 403)
+    if (userId == adminId) throw new AppError("Cannot change your own role.", 403)
 
     const updatedUser = await usersRepo.update(userId, { role: newRole });
 
@@ -104,7 +104,7 @@ const changeRole = async (userId, newRole, adminId) => {
 const deleteUser = async (userId) => {
     const existingUser = await usersRepo.getById(userId);
 
-    if (!existingUser) throw new AppError("User is not found!", 404);
+    if (!existingUser) throw new AppError("User is not found.", 404);
 
     const deletedUser = await usersRepo.delete_(userId);
 

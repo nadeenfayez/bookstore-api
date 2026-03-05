@@ -20,7 +20,7 @@ const getAllBooks = async () => {
 const getBook = async (bookId) => {
     const existingBook = await booksRepo.getById(bookId);
 
-    if (!existingBook) throw new AppError("Book is not found!", 404);
+    if (!existingBook) throw new AppError("Book is not found.", 404);
 
     return mapBook(existingBook);
 };
@@ -30,7 +30,7 @@ const createBook = async (newBook) => {
 
     const existingBook = await booksRepo.getByTitle(title);
 
-    if (existingBook) throw new AppError("Book title already exists!", 409);
+    if (existingBook) throw new AppError("Book title already exists.", 409);
 
     const createdBook = await booksRepo.create({ title, author });
 
@@ -40,12 +40,12 @@ const createBook = async (newBook) => {
 const updateBook = async (bookId, updates) => {
     const existingBook = await booksRepo.getById(bookId);
 
-    if (!existingBook) throw new AppError("Book is not found!", 404);
+    if (!existingBook) throw new AppError("Book is not found.", 404);
 
     const { title, author } = updates;  // Whitelisting fields
 
     if (title) {
-        if (await booksRepo.getByTitle(title)) throw new AppError("Book title already exists!", 409);
+        if (await booksRepo.getByTitle(title)) throw new AppError("Book title already exists.", 409);
     }
 
     const updatedBook = await booksRepo.update(bookId, { title, author });
@@ -56,7 +56,7 @@ const updateBook = async (bookId, updates) => {
 const deleteBook = async (bookId) => {
     const existingBook = await booksRepo.getById(bookId);
 
-    if (!existingBook) throw new AppError("Book is not found!", 404);
+    if (!existingBook) throw new AppError("Book is not found.", 404);
 
     const deletedBook = await booksRepo.delete_(bookId);
 

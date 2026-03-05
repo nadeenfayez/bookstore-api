@@ -7,7 +7,7 @@ const requireAuth = (req, res, next) => {
 
     const accessToken = authHeader?.substring(7);
 
-    if (!accessToken) throw new AppError("Missing access token!", 401);
+    if (!accessToken) throw new AppError("Missing access token.", 401);
 
     try {
         const decoded = verifyAccessToken(accessToken);
@@ -15,7 +15,8 @@ const requireAuth = (req, res, next) => {
         next();
     }
     catch (err) {
-        throw new AppError("Invalid or expired token!", 401);
+        console.error(err);
+        throw new AppError("Invalid or expired token.", 401);
     }
 };
 

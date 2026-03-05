@@ -11,7 +11,7 @@ const { hashRefreshToken, addRefreshToken } = require("../../utils/refreshTokenU
 const signUp = async (newUser, req) => {
     const { name, email, password, avatar } = newUser;  // Whitelisting fields
 
-    if (await usersRepo.getByEmail(email)) throw new AppError("Email is already in use!", 409);
+    if (await usersRepo.getByEmail(email)) throw new AppError("Email is already in use.", 409);
 
     const hashedPassword = await bcrypt.hash(password, bcryptSalt);
 
@@ -39,13 +39,13 @@ const signUp = async (newUser, req) => {
 const login = async (credentials, req) => {
     const existingUser = await usersRepo.getByEmail(credentials.email);
 
-    if (!existingUser) throw new AppError("Invalid email or password!", 401);
+    if (!existingUser) throw new AppError("Invalid email or password.", 401);
 
     if (!existingUser.password && existingUser.googleId) throw new AppError("This account uses Google login.", 400);  // If user doesn't set password yet after google-login
 
     const isMatch = await bcrypt.compare(credentials.password, existingUser.password);
 
-    if (!isMatch) throw new AppError("Invalid email or password!", 401);
+    if (!isMatch) throw new AppError("Invalid email or password.", 401);
 
     const tokenPayload = mapUser(existingUser);
 
@@ -75,7 +75,7 @@ const refreshAccessToken = async (refreshToken, req) => {   // Rotate a valid se
 
     if (!tokenDoc) {    // Reuse detection
         await usersRepo.invalidateAllTokens(decoded.id);
-        throw new AppError("Refresh token reuse detected!", 403);
+        throw new AppError("Refresh token reuse detected.", 403);
     }
 
     tokenDoc.refreshTokens = tokenDoc.refreshTokens.filter(rt => rt.tokenHash !== refreshTokenHash);    // Remove old token (rotation)
@@ -101,7 +101,7 @@ const refreshAccessToken = async (refreshToken, req) => {   // Rotate a valid se
 const findOrCreateGoogleUser = async (idToken, req) => {
     const googleData = await verifyGoogleToken(idToken);
 
-    if (!googleData.emailVerified) throw new AppError("Email is not verified!", 401);
+    if (!googleData.emailVerified) throw new AppError("Email is not verified.", 401);
 
     let existingUser = await usersRepo.getByGoogleOrEmail(googleData.googleId, googleData.email);   // Strong identity check (email is mutable but Google ID (sub) is not) => Identity correctness
 

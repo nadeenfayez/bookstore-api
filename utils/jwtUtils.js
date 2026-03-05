@@ -3,28 +3,54 @@ const { accessTokenSecret, accessTokenExpiry, refreshTokenSecret, refreshTokenEx
 
 
 const generateAccessToken = (payload, userId) => {
-    return jwt.sign(payload, accessTokenSecret, {
-        expiresIn: accessTokenExpiry,
-        issuer: "bookstore-api",
-        subject: String(userId)
-    });
+    try {
+        return jwt.sign(payload, accessTokenSecret, {
+            expiresIn: accessTokenExpiry,
+            issuer: "bookstore-api",
+            subject: String(userId)
+        });
+    }
+    catch (err) {
+        console.error(err);
+        throw new AppError("Failed to generate access token.", 500);
+    }
+
 }
 
 const generateRefreshToken = (payload, userId) => {
     // return crypto.randomBytes(64).toString("hex");   // Opaque approach
-    return jwt.sign(payload, refreshTokenSecret, {
-        expiresIn: refreshTokenExpiry,
-        issuer: "bookstore-api",
-        subject: String(userId)
-    });
+    try {
+        return jwt.sign(payload, refreshTokenSecret, {
+            expiresIn: refreshTokenExpiry,
+            issuer: "bookstore-api",
+            subject: String(userId)
+        });
+    }
+    catch (err) {
+        console.error(err);
+        throw new AppError("Failed to generate refresh token.", 500);
+    }
+
 }
 
 const verifyAccessToken = (accessToken) => {
-    return jwt.verify(accessToken, accessTokenSecret);
+    try {
+        return jwt.verify(accessToken, accessTokenSecret);
+    }
+    catch (err) {
+        console.error(err);
+        throw new AppError("Invalid or expired access token.", 401);
+    }
 };
 
 const verifyRefreshToken = (refreshtoken) => {
-    return jwt.verify(refreshtoken, refreshTokenSecret);
+    try {
+        return jwt.verify(refreshtoken, refreshTokenSecret);
+    }
+    catch (err) {
+        console.error(err);
+        throw new AppError("Invalid or expired refresh token.", 401);
+    }
 };
 
 

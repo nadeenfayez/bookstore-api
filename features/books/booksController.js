@@ -26,7 +26,7 @@ const getBookController = handleAsyncError(async (req, res) => {
 const createBookController = handleAsyncError(async (req, res) => {
     const newBook = req.body;
 
-    if (!newBook.title) throw new AppError("Book title is required!", 400);    // HTTP-level validation
+    if (!newBook.title) throw new AppError("Book title is required.", 400);    // HTTP-level validation
 
     const createdBook = await bookService.createBook(newBook);
 
@@ -50,7 +50,7 @@ const deleteBookController = handleAsyncError(async (req, res) => {
 const updateBookController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
 
-    if (!req.body.title && !req.body.author) throw new AppError("At least one field (title or author) is required!", 400); // HTTP-level validation
+    if (!req.body.title && !req.body.author) throw new AppError("At least one field (title or author) is required.", 400); // HTTP-level validation
 
     const updatedBook = await bookService.updateBook(id, req.body);
 

@@ -26,7 +26,7 @@ const getUserController = handleAsyncError(async (req, res) => {
 const createUserController = handleAsyncError(async (req, res) => {
     const newUser = req.body;
 
-    if (!newUser?.name || !newUser?.email || !newUser?.password) throw new AppError("User name & email & password are required!", 400); // HTTP-level validation
+    if (!newUser?.name || !newUser?.email || !newUser?.password) throw new AppError("Name, email, and password are required.", 400); // HTTP-level validation
 
     const createdUser = await userService.createUser(newUser);
 
@@ -50,7 +50,7 @@ const deleteUserController = handleAsyncError(async (req, res) => {
 const updateProfileController = handleAsyncError(async (req, res) => {
     const { id } = req.currentUser; // Self-service endpoint
 
-    if (!req.body.name && !req.body.avatar) throw new AppError("At least one field (name or avatar) is required!", 400); // HTTP-level validation
+    if (!req.body.name && !req.body.avatar) throw new AppError("At least one field (name or avatar) is required.", 400); // HTTP-level validation
 
     const updatedUser = await userService.updateProfile(id, req.body);
 
@@ -63,7 +63,7 @@ const updateProfileController = handleAsyncError(async (req, res) => {
 const changePasswordController = handleAsyncError(async (req, res) => {
     const { id } = req.currentUser; // Self-service endpoint
 
-    if (!req.body.newPassword) throw new AppError("newPassword is required!", 400);    // HTTP-level validation
+    if (!req.body.newPassword) throw new AppError("New password is required.", 400);    // HTTP-level validation
 
     const updatedUser = await userService.changePassword(id, req.body.oldPassword, req.body.newPassword);
 
@@ -77,7 +77,7 @@ const changeRoleController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
     const adminId = req.currentUser.id;
 
-    if (!req.body.newRole) throw new AppError("newRole is required!", 400);    // HTTP-level validation
+    if (!req.body.newRole) throw new AppError("New role is required.", 400);    // HTTP-level validation
 
     const updatedUser = await userService.changeRole(id, req.body.newRole, adminId);
 
