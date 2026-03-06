@@ -22,8 +22,8 @@ app.use(loggerMiddleware);
 connectDB();
 
 app.use("/api/v1/auth", authRouter);
-app.use("/api/v1/books", booksRouter);
 app.use("/api/v1/users", usersRouter);
+app.use("/api/v1/books", booksRouter);
 app.use("/api/v1/orders", ordersRouter);
 
 app.use(notFoundHandler);
