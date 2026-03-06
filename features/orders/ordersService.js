@@ -45,39 +45,57 @@ const getMyOrders = async (userId) => {
 const createOrder = async (userId, items) => {
     if (items.length === 0) throw new AppError("Order must contain at least one item.", 400);
 
+    // Merge duplicate books
+    const mergedItemsMap = new Map();
+
     for (const item of items) {
         if (!item.bookId) throw new AppError("Book id is required.", 400);
+
+        const quantity = item.quantity ?? 1;
+
+        if (quantity < 1) throw new AppError("Quantity must be >= 1.", 400);
+
+        const key = String(item.bookId);
+
+        if (mergedItemsMap.has(key)) {
+            mergedItemsMap.get(key).quantity += quantity;
+        }
+        else {
+            mergedItemsMap.set(key, { bookId: item.bookId, quantity });
+        }
     }
 
-    let bookIds = items.map(b => b.bookId);
+    const mergedItems = Array.from(mergedItemsMap.values());
 
-    let books = await booksRepo.getActiveByIds(bookIds);
+    const bookIds = mergedItems.map(b => b.bookId);
+
+    const books = await booksRepo.getActiveByIds(bookIds);
 
     if (books.length !== bookIds.length) throw new AppError("Some books were not found.", 404);
+
+    const orderCurrency = books[0].price.currency;  // All books in the order expected to have the same currency
+
+    for (const book of books) {
+        if (book.price.currency !== orderCurrency) throw new AppError("All books in the order must have the same currency.", 400);
+    }
 
     // Build order items + calculate total
     let totalAmount = 0;
 
-    const orderItems = items.map(i => {
+    const orderItems = mergedItems.map(i => {
         const book = books.find(b => String(b._id) === String(i.bookId));
 
-        const quantity = i.quantity ?? 1;
+        if (book.stockQty < i.quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
 
-        if (quantity < 1) throw new AppError("Quantity must be >= 1.", 400);
-
-        if (book.stockQty < quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
-
-        totalAmount += book.price.amount * quantity;
+        totalAmount += book.price.amount * i.quantity;
 
         return {
             bookId: book._id,
             title: book.title,  // Snapshot
             price: book.price,  // Snapshot
-            quantity
+            quantity: i.quantity
         }
     });
-
-    const orderCurrency = books[0].price.currency;  // All books in the order expected to have the same currency
 
     const createdOrder = await ordersRepo.create({ userId, items: orderItems, totalPrice: { amount: totalAmount, currency: orderCurrency }, status: "pending" });
 
