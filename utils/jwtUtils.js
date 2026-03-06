@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { accessTokenSecret, accessTokenExpiry, refreshTokenSecret, refreshTokenExpiry } = require("../configs/envConfigs");
+const AppError = require("./AppError");
 
 
 const generateAccessToken = (payload, userId) => {
