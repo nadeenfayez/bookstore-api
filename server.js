@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const booksRouter = require("./features/books/booksRouter");
 const usersRouter = require("./features/users/usersRouter");
+const ordersRouter = require("./features/orders/ordersRouter");
 const authRouter = require("./features/auth/authRouter");
 const loggerMiddleware = require("./middlewares/loggerMiddleware");
 const { PORT } = require("./configs/envConfigs");
@@ -23,6 +24,7 @@ connectDB();
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/books", booksRouter);
 app.use("/api/v1/users", usersRouter);
+app.use("/api/v1/orders", ordersRouter);
 
 app.use(notFoundHandler);
 

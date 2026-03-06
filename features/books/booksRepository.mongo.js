@@ -11,13 +11,17 @@ const getById = async (bookId) => {
     return targetBook;
 };
 
+const getActiveByIds = async (bookIds) => {
+    const targetBooks = await Book.find({ _id: { $in: bookIds }, isActive: true });
+    return targetBooks;
+};
+
 const getByTitle = async (bookTitle) => {
     const targetBook = await Book.findOne({ title: bookTitle });
     return targetBook;
 };
 
 const create = async (bookData) => {
-    // const createdBook = await Book.create({ title, author });
     const newBook = new Book(bookData);
     return await newBook.save();
 };
@@ -27,8 +31,8 @@ const update = async (bookId, updates) => {
     return updatedBook;
 };
 
-const delete_ = (bookId) => {
-    const deletedBook = Book.findByIdAndDelete(bookId);
+const deleteById = async (bookId) => {
+    const deletedBook = await Book.findByIdAndDelete(bookId);
     return deletedBook;
 };
 
@@ -36,8 +40,9 @@ const delete_ = (bookId) => {
 module.exports = {
     getAll,
     getById,
+    getActiveByIds,
     getByTitle,
     create,
     update,
-    delete_
+    deleteById
 };
