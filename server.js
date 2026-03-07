@@ -3,6 +3,7 @@ const cors = require("cors");
 const booksRouter = require("./features/books/booksRouter");
 const usersRouter = require("./features/users/usersRouter");
 const ordersRouter = require("./features/orders/ordersRouter");
+const paymentsRouter = require("./features/orders/paymentsRouter");
 const authRouter = require("./features/auth/authRouter");
 const loggerMiddleware = require("./middlewares/loggerMiddleware");
 const { PORT } = require("./configs/envConfigs");
@@ -25,6 +26,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", usersRouter);
 app.use("/api/v1/books", booksRouter);
 app.use("/api/v1/orders", ordersRouter);
+app.use("/api/v1/payments", paymentsRouter);
 
 app.use(notFoundHandler);
 
