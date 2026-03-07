@@ -25,14 +25,15 @@ const orderSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true
+        required: true,
+        index: true
     },
     items: {
         type: [orderItemSchema],
         valaidate: [arr => arr.length > 0, "Order must contain at least one item"]
     },
     totalPrice: {
-        amount: { type: Number, required: [true, "Price amount is required"], min: 0 },
+        amount: { type: Number, required: [true, "Total price amount is required"], min: 0 },
         currency: { type: String, required: true, default: "EGP", uppercase: true }
     },
     status: {
