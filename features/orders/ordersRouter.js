@@ -7,7 +7,9 @@ const express = require("express");
 
 const router = express.Router();
 
+
 router.use(requireAuth);    // Should be logged in already to check user role
+
 
 // User endpoints
 router.get("/me", requireRole("user", "admin"), getMyOrdersController);

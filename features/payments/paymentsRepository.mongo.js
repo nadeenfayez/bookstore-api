@@ -16,6 +16,11 @@ const getByUserId = async (userId) => {
     return targetPayments;
 };
 
+const getByOrderId = async (orderId) => {
+    const targetPayment = await Payment.findOne({ orderId });
+    return targetPayment;
+};
+
 const create = async (paymentData) => {
     const newPayment = new Payment(paymentData);
     return await newPayment.save();
@@ -36,6 +41,7 @@ module.exports = {
     getAll,
     getById,
     getByUserId,
+    getByOrderId,
     create,
     update,
     deleteById

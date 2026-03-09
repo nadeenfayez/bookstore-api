@@ -1,6 +1,6 @@
 const handleAsyncError = require("../../middlewares/handleAsyncError");
 const AppError = require("../../utils/AppError");
-const paymentService = require("./paymentService");
+const paymentService = require("./paymentsService");
 
 
 const getAllPaymentsController = handleAsyncError(async (req, res) => {
@@ -37,13 +37,29 @@ const getMyPaymentsController = handleAsyncError(async (req, res) => {
 });
 
 
-const createPaymentController = handleAsyncError(async (req, res) => {
+const createCheckoutSessionController = handleAsyncError(async (req, res) => {
+    const { orderId } = req.params;
 
+    const checkoutData = await paymentService.createCheckoutSession(orderId, req.currentUser);
+
+    res.status(201).json({
+        success: true,
+        ...checkoutData
+    });
 });
 
 
 const updatePaymentStatusController = handleAsyncError(async (req, res) => {
+    const { id } = req.params;
 
+    if (!req.body?.status) throw new AppError("Status is required.", 400);
+
+    const updatedPayment = await paymentService.updatePaymentStatus(id, req.body.status);
+
+    res.status(201).json({
+        success: true,
+        payment: updatedPayment
+    });
 });
 
 
@@ -63,7 +79,7 @@ module.exports = {
     getAllPaymentsController,
     getPaymentController,
     getMyPaymentsController,
-    createPaymentController,
+    createCheckoutSessionController,
     updatePaymentStatusController,
     deletePaymentController
 };

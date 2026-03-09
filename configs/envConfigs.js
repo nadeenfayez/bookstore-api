@@ -10,6 +10,9 @@ const refreshTokenTtlMs = +process.env.REFRESH_TOKEN_TTL_MS;
 const maxRefreshTokens = +process.env.MAX_REFRESH_TOKENS || 5;
 const booksFilePath = process.env.BOOKS_FILE_PATH;
 const usersFilePath = process.env.USERS_FILE_PATH;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const clientUrl = process.env.CLIENT_URL;
 const mode = process.env.MODE;
 const mongoURI = process.env.MONGO_URI;
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -27,6 +30,9 @@ module.exports = {
     maxRefreshTokens,
     booksFilePath,
     usersFilePath,
+    stripeSecretKey,
+    stripeWebhookSecret,
+    clientUrl,
     mode,
     mongoURI,
     googleClientId,
