@@ -130,6 +130,8 @@ const handleStripeWebhook = async (rawBody, signature) => {
             // idempotency: if already paid, do nothing
             if (existingPayment.status === "paid" && existingOrder.status === "paid") return;
 
+            const targetedBooks = [];
+
             // Validation of the stock first
             for (const item of existingOrder.items) {
                 const book = await booksRepo.getById(item.bookId);
@@ -137,14 +139,24 @@ const handleStripeWebhook = async (rawBody, signature) => {
                 if (!book) throw new AppError(`Book is not found for item ${item.bookId}.`, 404);
 
                 if (book.stockQty < item.quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
+
+                targetedBooks.push(book);
             }
+
+            let stockUpdates = [];
 
             // Reduce stock after all validations pass
-            for (const item of existingOrder.items) {
-                const book = await booksRepo.getById(item.bookId);
+            for (let i = 0; i < existingOrder.items.length; i++) {
+                const item = existingOrder.items[i];
+                const book = targetedBooks[i];
 
-                await booksRepo.update(book._id, { stockQty: book.stockQty - item.quantity });
+                stockUpdates.push({
+                    bookId: book._id,
+                    newStockQty: book.stockQty - item.quantity
+                });
             }
+
+            await booksRepo.bulkUpdateStock(stockUpdates);
 
             // Mark payment/order as paid
             if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" });

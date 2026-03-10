@@ -36,6 +36,17 @@ const deleteById = async (bookId) => {
     return deletedBook;
 };
 
+const bulkUpdateStock = async (updates) => {
+    return await Book.bulkWrite(
+        updates.map(item => ({
+            updateOne: {
+                filter: { _id: item.bookId },
+                update: { $set: { stockQty: item.newStockQty } }
+            }
+        }))
+    );
+};
+
 
 module.exports = {
     getAll,
@@ -44,5 +55,6 @@ module.exports = {
     getByTitle,
     create,
     update,
-    deleteById
+    deleteById,
+    bulkUpdateStock
 };
