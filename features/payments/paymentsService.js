@@ -9,6 +9,11 @@ const ordersRepo = DBType === "mongo"
     ? require("../orders/ordersRepository.mongo")
     : require("../orders/ordersRepository.fs");
 
+const booksRepo = DBType === "mongo"
+    ? require("../books/booksRepository.mongo")
+    : require("../books/booksRepository.fs");
+
+
 const stripe = require("stripe")(stripeSecretKey);
 
 
@@ -123,9 +128,29 @@ const handleStripeWebhook = async (rawBody, signature) => {
             if (!existingOrder) throw new AppError("Order is not found.", 404);
 
             // idempotency: if already paid, do nothing
+            if (existingPayment.status === "paid" && existingOrder.status === "paid") return;
+
+            // Validation of the stock first
+            for (const item of existingOrder.items) {
+                const book = await booksRepo.getById(item.bookId);
+
+                if (!book) throw new AppError(`Book is not found for item ${item.bookId}.`, 404);
+
+                if (book.stockQty < item.quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
+            }
+
+            // Reduce stock after all validations pass
+            for (const item of existingOrder.items) {
+                const book = await booksRepo.getById(item.bookId);
+
+                await booksRepo.update(book._id, { stockQty: book.stockQty - item.quantity });
+            }
+
+            // Mark payment/order as paid
             if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" });
 
             if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" });
+
             return;
         }
 
@@ -139,6 +164,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
             const existingOrder = await ordersRepo.getById(orderId);
 
             if (existingOrder && existingOrder.status === "pending") await ordersRepo.update(orderId, { status: "failed" });
+
             return;
         }
 
