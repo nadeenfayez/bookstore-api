@@ -11,14 +11,21 @@ const globalErrorHandler = require("./middlewares/globalErrorHandler");
 const notFoundHandler = require("./middlewares/notFoundHandler");
 const connectDB = require("./DB/connection");
 const cookieParser = require("cookie-parser");
+const { handleStripeWebhookController } = require("./features/payments/paymentsController");
 
 
 const app = express();
 
 app.use(cors());
+app.use(loggerMiddleware);
+
+
+app.post("/webhooks/stripe", express.raw({ type: "application/json" }), handleStripeWebhookController);
+
+
 app.use(express.json());
 app.use(cookieParser());
-app.use(loggerMiddleware);
+
 
 connectDB();
 

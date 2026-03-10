@@ -12,11 +12,11 @@ const generateAccessToken = (payload, userId) => {
         });
     }
     catch (err) {
-        console.error(err);
+        console.error("Access token generation error:", err);
         throw new AppError("Failed to generate access token.", 500);
     }
-
 }
+
 
 const generateRefreshToken = (payload, userId) => {
     // return crypto.randomBytes(64).toString("hex");   // Opaque approach
@@ -28,28 +28,29 @@ const generateRefreshToken = (payload, userId) => {
         });
     }
     catch (err) {
-        console.error(err);
+        console.error("Refresh token generation error:", err);
         throw new AppError("Failed to generate refresh token.", 500);
     }
-
 }
+
 
 const verifyAccessToken = (accessToken) => {
     try {
         return jwt.verify(accessToken, accessTokenSecret);
     }
     catch (err) {
-        console.error(err);
+        console.error("Access token verification error:", err);
         throw new AppError("Invalid or expired access token.", 401);
     }
 };
+
 
 const verifyRefreshToken = (refreshtoken) => {
     try {
         return jwt.verify(refreshtoken, refreshTokenSecret);
     }
     catch (err) {
-        console.error(err);
+        console.error("Refresh token verification error:", err);
         throw new AppError("Invalid or expired refresh token.", 401);
     }
 };

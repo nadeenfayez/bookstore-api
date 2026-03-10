@@ -1,4 +1,4 @@
-const { DBType, stripeSecretKey, clientUrl } = require("../../configs/envConfigs");
+const { DBType, stripeSecretKey, clientUrl, stripeWebhookSecret } = require("../../configs/envConfigs");
 const AppError = require("../../utils/AppError");
 
 const paymentRepo = DBType === "mongo"
@@ -96,6 +96,60 @@ const createCheckoutSession = async (orderId, currentUser) => {
 };
 
 
+const handleStripeWebhook = async (rawBody, signature) => {
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(rawBody, signature, stripeWebhookSecret);
+    }
+    catch (err) {
+        console.error("Stripe webhook verification error:", err.message);
+        throw new AppError(`Stripe webhook signature verification failed: ${err.message}`, 400);
+    }
+
+    const dataObject = event.data.object;
+    const orderId = dataObject.metadata?.orderId;
+
+    switch (event.type) {
+        case "checkout.session.completed": {
+            if (!orderId) throw new AppError("Order id is missing from Stripe session metadata.", 400);
+
+            const existingPayment = await paymentRepo.getByOrderId(orderId);
+
+            if (!existingPayment) throw new AppError("Payment is not found for this order.", 404);
+
+            const existingOrder = await ordersRepo.getById(orderId);
+
+            if (!existingOrder) throw new AppError("Order is not found.", 404);
+
+            // idempotency: if already paid, do nothing
+            if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" });
+
+            if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" });
+            return;
+        }
+
+        case "checkout.session.expired": {
+            if (!orderId) return;
+
+            const existingPayment = await paymentRepo.getByOrderId(orderId);
+
+            if (existingPayment && existingPayment.status === "pending") await paymentRepo.update(existingPayment._id, { status: "failed" });
+
+            const existingOrder = await ordersRepo.getById(orderId);
+
+            if (existingOrder && existingOrder.status === "pending") await ordersRepo.update(orderId, { status: "failed" });
+            return;
+        }
+
+        default: {
+            console.log(`Unhandled event type ${event.type}`);
+            return;
+        }
+    }
+};
+
+
 const updatePaymentStatus = async (paymentId, newStatus) => {
     const existingPayment = await paymentRepo.getById(paymentId);
 
@@ -126,6 +180,7 @@ module.exports = {
     getPayment,
     getMyPayments,
     createCheckoutSession,
+    handleStripeWebhook,
     updatePaymentStatus,
     deletePayment
 };

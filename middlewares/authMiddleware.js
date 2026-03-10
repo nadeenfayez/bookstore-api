@@ -15,7 +15,7 @@ const requireAuth = (req, res, next) => {
         next();
     }
     catch (err) {
-        console.error(err);
+        console.error("Access token middleware verification error:", err);
         throw new AppError("Invalid or expired token.", 401);
     }
 };

@@ -49,10 +49,27 @@ const createCheckoutSessionController = handleAsyncError(async (req, res) => {
 });
 
 
+const handleStripeWebhookController = async (req, res) => {
+    try {
+        const signature = req.headers["stripe-signature"];
+
+        if (!signature) throw new AppError("Missing Stripe signature.", 400);   // HTTP-level validation
+
+        await paymentService.handleStripeWebhook(req.body, signature);
+
+        res.sendStatus(200);
+    }
+    catch (err) {
+        console.error("Webhook error:", err.message);
+        res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+};
+
+
 const updatePaymentStatusController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
 
-    if (!req.body?.status) throw new AppError("Status is required.", 400);
+    if (!req.body?.status) throw new AppError("Status is required.", 400);  // HTTP-level validation
 
     const updatedPayment = await paymentService.updatePaymentStatus(id, req.body.status);
 
@@ -80,6 +97,7 @@ module.exports = {
     getPaymentController,
     getMyPaymentsController,
     createCheckoutSessionController,
+    handleStripeWebhookController,
     updatePaymentStatusController,
     deletePaymentController
 };

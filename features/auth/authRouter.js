@@ -6,6 +6,7 @@ const express = require("express");
 
 const router = express.Router();
 
+
 // Public routes
 router.post("/signup", signUpController);
 
@@ -14,7 +15,6 @@ router.post("/login", loginController);
 router.post("/google-login", googleLoginController);
 
 router.post("/refresh", refreshController);
-
 
 // Authenticated routes
 router.delete("/sessions/current", requireAuth, logoutController);  // Self-service endpoint
