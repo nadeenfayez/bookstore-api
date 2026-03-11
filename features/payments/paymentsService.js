@@ -187,25 +187,32 @@ const handleStripeWebhook = async (rawBody, signature) => {
     }
 };
 
+// Deleted because stripe webhook is the only source of the truth
+// const updatePaymentStatus = async (paymentId, newStatus) => {
+//     const allowedStatus = ["pending", "paid", "failed"];
 
-const updatePaymentStatus = async (paymentId, newStatus) => {
-    const existingPayment = await paymentRepo.getById(paymentId);
+//     if (!allowedStatus.includes(newStatus)) throw new AppError("Invalid status.", 400);
 
-    if (!existingPayment) throw new AppError("Payment is not found.", 404);
+//     const existingPayment = await paymentRepo.getById(paymentId);
 
-    // Prevent changing paid orders back to pending, etc.
-    if (existingPayment.status === "paid") throw new AppError("Paid orders cannot be modified.", 409);
+//     if (!existingPayment) throw new AppError("Payment is not found.", 404);
 
-    const updatedPayment = await paymentRepo.update({ status: newStatus });
+//     // Prevent changing paid payments back to pending, etc.
+//     if (existingPayment.status === "paid") throw new AppError("Paid payments cannot be modified.", 409);
 
-    return updatedPayment;
-};
+//     const updatedPayment = await paymentRepo.update(paymentId, { status: newStatus });
+
+//     return updatedPayment;
+// };
 
 
 const deletePayment = async (paymentId) => {
     const existingPayment = await paymentRepo.getById(paymentId);
 
     if (!existingPayment) throw new AppError("Payment is not found.", 404);
+
+    // Prevent deleting paid payments
+    if (existingPayment.status === "paid") throw new AppError("Paid payments cannot be deleted.", 409);
 
     const deletedPayment = await paymentRepo.deleteById(paymentId);
 
@@ -219,6 +226,5 @@ module.exports = {
     getMyPayments,
     createCheckoutSession,
     handleStripeWebhook,
-    updatePaymentStatus,
     deletePayment
 };

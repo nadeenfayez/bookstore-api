@@ -1,6 +1,6 @@
 const requireAuth = require("../../middlewares/authMiddleware");
 const requireRole = require("../../middlewares/roleMiddleware");
-const { getAllPaymentsController, getPaymentController, getMyPaymentsController, createCheckoutSessionController, paymentSuccessController, paymentCancelController, deletePaymentController, updatePaymentStatusController } = require("./paymentsController");
+const { getAllPaymentsController, getPaymentController, getMyPaymentsController, createCheckoutSessionController, deletePaymentController } = require("./paymentsController");
 
 
 const express = require("express");
@@ -21,7 +21,8 @@ router.post("/checkout-session/:orderId", requireRole("user", "admin"), createCh
 // Admin endpoints
 router.get("/", requireRole('admin'), getAllPaymentsController);
 
-router.patch("/:id/status", requireRole('admin'), updatePaymentStatusController);
+// Deleted because stripe webhook is the only source of the truth
+// router.patch("/:id/status", requireRole('admin'), updatePaymentStatusController);
 
 router.delete("/:id", requireRole('admin'), deletePaymentController);
 

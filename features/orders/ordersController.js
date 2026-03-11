@@ -58,7 +58,7 @@ const updateOrderStatusController = handleAsyncError(async (req, res) => {
 
     if (!req.body.status) throw new AppError("Status is required.", 400); // HTTP-level validation
 
-    const updatedOrder = await orderService.updateOrder(id, req.body.status);
+    const updatedOrder = await orderService.updateOrderStatus(id, req.body.status);
 
     res.status(200).json({
         success: true,

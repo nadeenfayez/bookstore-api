@@ -65,19 +65,19 @@ const handleStripeWebhookController = async (req, res) => {
     }
 };
 
+// Deleted because stripe webhook is the only source of the truth
+// const updatePaymentStatusController = handleAsyncError(async (req, res) => {
+//     const { id } = req.params;
 
-const updatePaymentStatusController = handleAsyncError(async (req, res) => {
-    const { id } = req.params;
+//     if (!req.body?.status) throw new AppError("Status is required.", 400);  // HTTP-level validation
 
-    if (!req.body?.status) throw new AppError("Status is required.", 400);  // HTTP-level validation
+//     const updatedPayment = await paymentService.updatePaymentStatus(id, req.body.status);
 
-    const updatedPayment = await paymentService.updatePaymentStatus(id, req.body.status);
-
-    res.status(201).json({
-        success: true,
-        payment: updatedPayment
-    });
-});
+//     res.status(201).json({
+//         success: true,
+//         payment: updatedPayment
+//     });
+// });
 
 
 const deletePaymentController = handleAsyncError(async (req, res) => {
@@ -98,6 +98,5 @@ module.exports = {
     getMyPaymentsController,
     createCheckoutSessionController,
     handleStripeWebhookController,
-    updatePaymentStatusController,
     deletePaymentController
 };

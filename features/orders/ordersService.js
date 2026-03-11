@@ -103,8 +103,8 @@ const createOrder = async (userId, items) => {
 };
 
 
-const updateOrder = async (orderId, status) => {
-    const allowedStatus = ["pending", "paid", "failed"];
+const updateOrderStatus = async (orderId, status) => {
+    const allowedStatus = ["failed"];
 
     if (!allowedStatus.includes(status)) throw new AppError("Invalid status.", 400);
 
@@ -126,6 +126,9 @@ const deleteOrder = async (orderId) => {
 
     if (!existingOrder) throw new AppError("Order is not found.", 404);
 
+    // Prevent deleting paid orders
+    if (existingOrder.status === "paid") throw new AppError("Paid orders cannot be deleted.", 409);
+
     const deletedOrder = await ordersRepo.deleteById(orderId);
 
     return deletedOrder;
@@ -137,6 +140,6 @@ module.exports = {
     getOrder,
     getMyOrders,
     createOrder,
-    updateOrder,
+    updateOrderStatus,
     deleteOrder
 };
