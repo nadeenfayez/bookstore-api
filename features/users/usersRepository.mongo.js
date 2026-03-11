@@ -35,7 +35,7 @@ const create = (userData) => {
     return new User(userData);
 };
 
-const bulkSave = async (userDoc) => {
+const save = async (userDoc) => {
     return await userDoc.save();
 };
 
@@ -61,7 +61,7 @@ module.exports = {
     getByGoogleOrEmail,
     getByRefreshToken,
     create,
-    bulkSave,
+    save,
     invalidateAllTokens,
     update,
     deleteById

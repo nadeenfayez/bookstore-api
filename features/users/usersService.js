@@ -48,7 +48,7 @@ const createUser = async (newUser) => {
 
     const createdUser = usersRepo.create({ name, email, password: hashedPassword, avatar });
 
-    await usersRepo.bulkSave(createdUser);
+    await usersRepo.save(createdUser);
 
     return mapUser(createdUser);
 };

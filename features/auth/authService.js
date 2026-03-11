@@ -27,7 +27,7 @@ const signUp = async (newUser, req) => {
 
     addRefreshToken(createdUser, refreshTokenHash, req);
 
-    await usersRepo.bulkSave(createdUser);
+    await usersRepo.save(createdUser);
 
     return {
         user: tokenPayload,
@@ -58,7 +58,7 @@ const login = async (credentials, req) => {
 
     addRefreshToken(existingUser, refreshTokenHash, req);
 
-    await usersRepo.bulkSave(existingUser);
+    await usersRepo.save(existingUser);
 
     return {
         user: tokenPayload,
@@ -92,7 +92,7 @@ const refreshAccessToken = async (refreshToken, req) => {   // Rotate a valid se
 
     addRefreshToken(tokenDoc, newRefreshTokenHash, req);
 
-    await usersRepo.bulkSave(tokenDoc);
+    await usersRepo.save(tokenDoc);
 
     return {
         newAccessToken,
@@ -132,7 +132,7 @@ const findOrCreateGoogleUser = async (idToken, req) => {
 
     addRefreshToken(existingUser, refreshTokenHash, req);
 
-    await usersRepo.bulkSave(existingUser);
+    await usersRepo.save(existingUser);
 
     return {
         user: tokenPayload,
@@ -151,7 +151,7 @@ const logout = async (refreshToken) => {
 
     tokenDoc.refreshTokens = tokenDoc.refreshTokens.filter(rt => rt.tokenHash !== refreshTokenHash);    // Logout from this device only
 
-    await usersRepo.bulkSave(tokenDoc);
+    await usersRepo.save(tokenDoc);
 };
 
 const logoutAll = async (userId) => {
