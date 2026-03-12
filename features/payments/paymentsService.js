@@ -101,6 +101,8 @@ const createCheckoutSession = async (orderId, currentUser) => {
 };
 
 
+const mongoose = require("mongoose");
+
 const handleStripeWebhook = async (rawBody, signature) => {
     let event;
 
@@ -119,49 +121,57 @@ const handleStripeWebhook = async (rawBody, signature) => {
         case "checkout.session.completed": {
             if (!orderId) throw new AppError("Order id is missing from Stripe session metadata.", 400);
 
-            const existingPayment = await paymentRepo.getByOrderId(orderId);
+            const session = await mongoose.startSession();
 
-            if (!existingPayment) throw new AppError("Payment is not found for this order.", 404);
+            try {
+                await session.withTransaction(async () => {
+                    const existingPayment = await paymentRepo.getByOrderId(orderId, session);
 
-            const existingOrder = await ordersRepo.getById(orderId);
+                    if (!existingPayment) throw new AppError("Payment is not found for this order.", 404);
 
-            if (!existingOrder) throw new AppError("Order is not found.", 404);
+                    const existingOrder = await ordersRepo.getById(orderId, session);
 
-            // idempotency: if already paid, do nothing
-            if (existingPayment.status === "paid" && existingOrder.status === "paid") return;
+                    if (!existingOrder) throw new AppError("Order is not found.", 404);
 
-            const targetedBooks = [];
+                    // idempotency: if already paid, do nothing
+                    if (existingPayment.status === "paid" && existingOrder.status === "paid") return;
 
-            // Validation of the stock first
-            for (const item of existingOrder.items) {
-                const book = await booksRepo.getById(item.bookId);
+                    const targetedBooks = [];
 
-                if (!book) throw new AppError(`Book is not found for item ${item.bookId}.`, 404);
+                    // Validation of the stock first
+                    for (const item of existingOrder.items) {
+                        const book = await booksRepo.getById(item.bookId, session);
 
-                if (book.stockQty < item.quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
+                        if (!book) throw new AppError(`Book is not found for item ${item.bookId}.`, 404);
 
-                targetedBooks.push(book);
-            }
+                        if (book.stockQty < item.quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
 
-            let stockUpdates = [];
+                        targetedBooks.push(book);
+                    }
 
-            // Reduce stock after all validations pass
-            for (let i = 0; i < existingOrder.items.length; i++) {
-                const item = existingOrder.items[i];
-                const book = targetedBooks[i];
+                    let stockUpdates = [];
 
-                stockUpdates.push({
-                    bookId: book._id,
-                    newStockQty: book.stockQty - item.quantity
+                    // Reduce stock after all validations pass
+                    for (let i = 0; i < existingOrder.items.length; i++) {
+                        const item = existingOrder.items[i];
+                        const book = targetedBooks[i];
+
+                        stockUpdates.push({
+                            bookId: book._id,
+                            newStockQty: book.stockQty - item.quantity
+                        });
+                    }
+
+                    await booksRepo.bulkUpdateStock(stockUpdates, session);
+
+                    // Mark payment/order as paid
+                    if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" }, session);
+
+                    if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" }, session);
                 });
+            } finally {
+                await session.endSession(); // Session cleanup
             }
-
-            await booksRepo.bulkUpdateStock(stockUpdates);
-
-            // Mark payment/order as paid
-            if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" });
-
-            if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" });
 
             return;
         }
@@ -169,13 +179,21 @@ const handleStripeWebhook = async (rawBody, signature) => {
         case "checkout.session.expired": {
             if (!orderId) return;
 
-            const existingPayment = await paymentRepo.getByOrderId(orderId);
+            const session = await mongoose.startSession();
 
-            if (existingPayment && existingPayment.status === "pending") await paymentRepo.update(existingPayment._id, { status: "failed" });
+            try {
+                await session.withTransaction(async () => {
+                    const existingPayment = await paymentRepo.getByOrderId(orderId);
 
-            const existingOrder = await ordersRepo.getById(orderId);
+                    if (existingPayment && existingPayment.status === "pending") await paymentRepo.update(existingPayment._id, { status: "failed" });
 
-            if (existingOrder && existingOrder.status === "pending") await ordersRepo.update(orderId, { status: "failed" });
+                    const existingOrder = await ordersRepo.getById(orderId);
+
+                    if (existingOrder && existingOrder.status === "pending") await ordersRepo.update(orderId, { status: "failed" });
+                });
+            } finally {
+                await session.endSession(); // Session cleanup
+            }
 
             return;
         }

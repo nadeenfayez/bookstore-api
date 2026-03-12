@@ -16,8 +16,8 @@ const getByUserId = async (userId) => {
     return targetPayments;
 };
 
-const getByOrderId = async (orderId) => {
-    const targetPayment = await Payment.findOne({ orderId });
+const getByOrderId = async (orderId, session = null) => {
+    const targetPayment = await Payment.findOne({ orderId }).session(session);
     return targetPayment;
 };
 
@@ -26,8 +26,8 @@ const create = async (paymentData) => {
     return await newPayment.save();
 };
 
-const update = async (paymentId, updates) => {
-    const updatedPayment = await Payment.findByIdAndUpdate(paymentId, { $set: updates }, { new: true, runValidators: true });
+const update = async (paymentId, updates, session = null) => {
+    const updatedPayment = await Payment.findByIdAndUpdate(paymentId, { $set: updates }, { new: true, runValidators: true, session });
     return updatedPayment;
 };
 

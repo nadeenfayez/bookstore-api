@@ -6,8 +6,8 @@ const getAll = async () => {
     return allBooks;
 };
 
-const getById = async (bookId) => {
-    const targetBook = await Book.findById(bookId);
+const getById = async (bookId, session = null) => {
+    const targetBook = await Book.findById(bookId).session(session);
     return targetBook;
 };
 
@@ -36,14 +36,15 @@ const deleteById = async (bookId) => {
     return deletedBook;
 };
 
-const bulkUpdateStock = async (updates) => {
+const bulkUpdateStock = async (updates, session = null) => {
     return await Book.bulkWrite(
         updates.map(item => ({
             updateOne: {
                 filter: { _id: item.bookId },
                 update: { $set: { stockQty: item.newStockQty } }
             }
-        }))
+        })),
+        { session }
     );
 };
 

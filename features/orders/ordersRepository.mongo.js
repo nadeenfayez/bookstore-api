@@ -6,8 +6,8 @@ const getAll = async () => {
     return allOrders;
 };
 
-const getById = async (orderId) => {
-    const targetOrder = await Order.findById(orderId);
+const getById = async (orderId, session = null) => {
+    const targetOrder = await Order.findById(orderId).session(session);
     return targetOrder;
 };
 
@@ -21,8 +21,8 @@ const create = async (orderData) => {
     return await newOrder.save();
 };
 
-const update = async (orderId, updates) => {
-    const updatedOrder = await Order.findByIdAndUpdate(orderId, { $set: updates }, { new: true, runValidators: true });
+const update = async (orderId, updates, session = null) => {
+    const updatedOrder = await Order.findByIdAndUpdate(orderId, { $set: updates }, { new: true, runValidators: true, session });
     return updatedOrder;
 };
 
