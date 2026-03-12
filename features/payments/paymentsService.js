@@ -15,6 +15,9 @@ const booksRepo = DBType === "mongo"
     ? require("../books/booksRepository.mongo")
     : require("../books/booksRepository.fs");
 
+const webhookEventsRepo = DBType === "mongo"
+    ? require("./webhookEventsRepository.mongo")
+    : require("./webhookEventsRepository.fs");
 
 // const mapPayment = (dbPayment) => ({
 //     id: dbPayment.id,
@@ -114,13 +117,20 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
     const dataObject = event.data.object;
 
-    switch (event.type) {
-        case "checkout.session.completed": {
-            const orderId = dataObject.metadata?.orderId;
+    await mongoose.connection.transaction(async (session) => {
 
-            if (!orderId) throw new AppError("Order id is missing from Stripe session metadata.", 400);
+        const existingWebhookEvent = await webhookEventsRepo.getByEventId(event.id, session);
 
-            await mongoose.connection.transaction(async (session) => {
+        if (existingWebhookEvent?.processed) return;
+
+        if (!existingWebhookEvent) await webhookEventsRepo.create({ eventId: event.id, type: event.type, provider: "stripe", orderId: dataObject.metadata?.orderId || undefined, processed: false }, session);
+
+        switch (event.type) {
+            case "checkout.session.completed": {
+                const orderId = dataObject.metadata?.orderId;
+
+                if (!orderId) throw new AppError("Order id is missing from Stripe session metadata.", 400);
+
                 const existingPayment = await paymentRepo.getByOrderId(orderId, session);
 
                 if (!existingPayment) throw new AppError("Payment is not found for this order.", 404);
@@ -130,7 +140,11 @@ const handleStripeWebhook = async (rawBody, signature) => {
                 if (!existingOrder) throw new AppError("Order is not found.", 404);
 
                 // idempotency: if already paid, do nothing
-                if (existingPayment.status === "paid" && existingOrder.status === "paid") return;
+                if (existingPayment.status === "paid" && existingOrder.status === "paid") {
+                    await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
+
+                    return;
+                }
 
                 const targetedBooks = [];
 
@@ -165,17 +179,21 @@ const handleStripeWebhook = async (rawBody, signature) => {
                 if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" }, session);
 
                 if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" }, session);
-            });
 
-            return;
-        }
+                await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
 
-        case "checkout.session.expired": {
-            const orderId = dataObject.metadata?.orderId;
+                return;
+            }
 
-            if (!orderId) return;
+            case "checkout.session.expired": {
+                const orderId = dataObject.metadata?.orderId;
 
-            await mongoose.connection.transaction(async (session) => {
+                if (!orderId) {
+                    await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
+
+                    return;
+                }
+
                 const existingPayment = await paymentRepo.getByOrderId(orderId, session);
 
                 if (existingPayment && existingPayment.status === "pending") await paymentRepo.update(existingPayment._id, { status: "failed" }, session);
@@ -183,16 +201,18 @@ const handleStripeWebhook = async (rawBody, signature) => {
                 const existingOrder = await ordersRepo.getById(orderId, session);
 
                 if (existingOrder && existingOrder.status === "pending") await ordersRepo.update(orderId, { status: "failed" }, session);
-            });
 
-            return;
-        }
+                await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
 
-        default: {
-            console.log(`Unhandled event type ${event.type}`);
-            return;
+                return;
+            }
+
+            default: {
+                console.log(`Unhandled event type ${event.type}`);
+                return;
+            }
         }
-    }
+    });
 };
 
 // Deleted because stripe webhook is the only source of the truth
