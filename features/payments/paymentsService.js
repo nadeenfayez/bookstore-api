@@ -121,7 +121,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
         const existingWebhookEvent = await webhookEventsRepo.getByEventId(event.id, session);
 
-        if (existingWebhookEvent?.processed) return;
+        if (existingWebhookEvent?.processed) return;    // Idempotency check for duplicate webhook deliveries
 
         if (!existingWebhookEvent) await webhookEventsRepo.create({ eventId: event.id, type: event.type, provider: "stripe", orderId: dataObject.metadata?.orderId || undefined, processed: false }, session);
 
@@ -209,6 +209,9 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
             default: {
                 console.log(`Unhandled event type ${event.type}`);
+
+                await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
+
                 return;
             }
         }
