@@ -1,4 +1,6 @@
 const { DBType, stripeSecretKey, clientUrl, stripeWebhookSecret } = require("../../configs/envConfigs");
+const stripe = require("stripe")(stripeSecretKey);
+const mongoose = require("mongoose");
 const AppError = require("../../utils/AppError");
 
 const paymentRepo = DBType === "mongo"
@@ -12,9 +14,6 @@ const ordersRepo = DBType === "mongo"
 const booksRepo = DBType === "mongo"
     ? require("../books/booksRepository.mongo")
     : require("../books/booksRepository.fs");
-
-
-const stripe = require("stripe")(stripeSecretKey);
 
 
 // const mapPayment = (dbPayment) => ({
@@ -41,6 +40,7 @@ const getPayment = async (paymentId, currentUser) => {
 
     return existingPayment;
 };
+
 
 const getMyPayments = async (userId) => {
     const existingPayments = await paymentRepo.getByUserId(userId);
@@ -101,8 +101,6 @@ const createCheckoutSession = async (orderId, currentUser) => {
 };
 
 
-const mongoose = require("mongoose");
-
 const handleStripeWebhook = async (rawBody, signature) => {
     let event;
 
@@ -115,85 +113,77 @@ const handleStripeWebhook = async (rawBody, signature) => {
     }
 
     const dataObject = event.data.object;
-    const orderId = dataObject.metadata?.orderId;
 
     switch (event.type) {
         case "checkout.session.completed": {
+            const orderId = dataObject.metadata?.orderId;
+
             if (!orderId) throw new AppError("Order id is missing from Stripe session metadata.", 400);
 
-            const session = await mongoose.startSession();
+            await mongoose.connection.transaction(async (session) => {
+                const existingPayment = await paymentRepo.getByOrderId(orderId, session);
 
-            try {
-                await session.withTransaction(async () => {
-                    const existingPayment = await paymentRepo.getByOrderId(orderId, session);
+                if (!existingPayment) throw new AppError("Payment is not found for this order.", 404);
 
-                    if (!existingPayment) throw new AppError("Payment is not found for this order.", 404);
+                const existingOrder = await ordersRepo.getById(orderId, session);
 
-                    const existingOrder = await ordersRepo.getById(orderId, session);
+                if (!existingOrder) throw new AppError("Order is not found.", 404);
 
-                    if (!existingOrder) throw new AppError("Order is not found.", 404);
+                // idempotency: if already paid, do nothing
+                if (existingPayment.status === "paid" && existingOrder.status === "paid") return;
 
-                    // idempotency: if already paid, do nothing
-                    if (existingPayment.status === "paid" && existingOrder.status === "paid") return;
+                const targetedBooks = [];
 
-                    const targetedBooks = [];
+                // Validation of the stock first
+                for (const item of existingOrder.items) {
+                    const book = await booksRepo.getById(item.bookId, session);
 
-                    // Validation of the stock first
-                    for (const item of existingOrder.items) {
-                        const book = await booksRepo.getById(item.bookId, session);
+                    if (!book) throw new AppError(`Book is not found for item ${item.bookId}.`, 404);
 
-                        if (!book) throw new AppError(`Book is not found for item ${item.bookId}.`, 404);
+                    if (book.stockQty < item.quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
 
-                        if (book.stockQty < item.quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
+                    targetedBooks.push(book);
+                }
 
-                        targetedBooks.push(book);
-                    }
+                // Preparing updates
+                const stockUpdates = [];
 
-                    let stockUpdates = [];
+                for (let i = 0; i < existingOrder.items.length; i++) {
+                    const item = existingOrder.items[i];
+                    const book = targetedBooks[i];
 
-                    // Reduce stock after all validations pass
-                    for (let i = 0; i < existingOrder.items.length; i++) {
-                        const item = existingOrder.items[i];
-                        const book = targetedBooks[i];
+                    stockUpdates.push({
+                        bookId: book._id,
+                        newStockQty: book.stockQty - item.quantity
+                    });
+                }
 
-                        stockUpdates.push({
-                            bookId: book._id,
-                            newStockQty: book.stockQty - item.quantity
-                        });
-                    }
+                // Reduce stock after all validations pass
+                await booksRepo.bulkUpdateStock(stockUpdates, session);
 
-                    await booksRepo.bulkUpdateStock(stockUpdates, session);
+                // Mark payment/order as paid
+                if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" }, session);
 
-                    // Mark payment/order as paid
-                    if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" }, session);
-
-                    if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" }, session);
-                });
-            } finally {
-                await session.endSession(); // Session cleanup
-            }
+                if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" }, session);
+            });
 
             return;
         }
 
         case "checkout.session.expired": {
+            const orderId = dataObject.metadata?.orderId;
+
             if (!orderId) return;
 
-            const session = await mongoose.startSession();
+            await mongoose.connection.transaction(async (session) => {
+                const existingPayment = await paymentRepo.getByOrderId(orderId, session);
 
-            try {
-                await session.withTransaction(async () => {
-                    const existingPayment = await paymentRepo.getByOrderId(orderId);
+                if (existingPayment && existingPayment.status === "pending") await paymentRepo.update(existingPayment._id, { status: "failed" }, session);
 
-                    if (existingPayment && existingPayment.status === "pending") await paymentRepo.update(existingPayment._id, { status: "failed" });
+                const existingOrder = await ordersRepo.getById(orderId, session);
 
-                    const existingOrder = await ordersRepo.getById(orderId);
-
-                    if (existingOrder && existingOrder.status === "pending") await ordersRepo.update(orderId, { status: "failed" });
-                });
-            } finally {
-                await session.endSession(); // Session cleanup
-            }
+                if (existingOrder && existingOrder.status === "pending") await ordersRepo.update(orderId, { status: "failed" }, session);
+            });
 
             return;
         }
