@@ -19,11 +19,17 @@ const webhookEventsRepo = DBType === "mongo"
     ? require("./webhookEventsRepository.mongo")
     : require("./webhookEventsRepository.fs");
 
+
 // const mapPayment = (dbPayment) => ({
 //     id: dbPayment.id,
 //     title: dbPayment.title,
 //     author: dbPayment.author,
 // });
+
+
+const markWebhookEventProcessed = async (eventId, session) => {
+    await webhookEventsRepo.updateByEventId(eventId, { processed: true, processedAt: new Date() }, session);
+};
 
 
 const getAllPayments = async () => {
@@ -141,7 +147,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
                 // idempotency: if already paid, do nothing
                 if (existingPayment.status === "paid" && existingOrder.status === "paid") {
-                    await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
+                    await markWebhookEventProcessed(event.id, session);
 
                     return;
                 }
@@ -180,7 +186,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
                 if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" }, session);
 
-                await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
+                await markWebhookEventProcessed(event.id, session);
 
                 return;
             }
@@ -189,7 +195,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
                 const orderId = dataObject.metadata?.orderId;
 
                 if (!orderId) {
-                    await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
+                    await markWebhookEventProcessed(event.id, session);
 
                     return;
                 }
@@ -202,7 +208,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
                 if (existingOrder && existingOrder.status === "pending") await ordersRepo.update(orderId, { status: "failed" }, session);
 
-                await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
+                await markWebhookEventProcessed(event.id, session);
 
                 return;
             }
@@ -210,7 +216,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
             default: {
                 console.log(`Unhandled event type ${event.type}`);
 
-                await webhookEventsRepo.updateByEventId(event.id, { processed: true, processedAt: new Date() }, session);
+                await markWebhookEventProcessed(event.id, session);
 
                 return;
             }
