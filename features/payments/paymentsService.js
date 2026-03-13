@@ -3,9 +3,9 @@ const stripe = require("stripe")(stripeSecretKey);
 const mongoose = require("mongoose");
 const AppError = require("../../utils/AppError");
 
-const paymentRepo = DBType === "mongo"
+const paymentsRepo = DBType === "mongo"
     ? require("./paymentsRepository.mongo")
-    : require("./paymentRepository.fs");
+    : require("./paymentsRepository.fs");
 
 const ordersRepo = DBType === "mongo"
     ? require("../orders/ordersRepository.mongo")
@@ -19,6 +19,10 @@ const webhookEventsRepo = DBType === "mongo"
     ? require("./webhookEventsRepository.mongo")
     : require("./webhookEventsRepository.fs");
 
+const usersRepo = DBType === "mongo"
+    ? require("../users/usersRepository.mongo")
+    : require("../users/usersRepository.fs");
+
 
 // const mapPayment = (dbPayment) => ({
 //     id: dbPayment.id,
@@ -27,18 +31,18 @@ const webhookEventsRepo = DBType === "mongo"
 // });
 
 
-const markWebhookEventProcessed = async (eventId, session) => {
+const markWebhookEventProcessed = async (eventId, session) => { // Helper
     await webhookEventsRepo.updateByEventId(eventId, { processed: true, processedAt: new Date() }, session);
 };
 
 
 const getAllPayments = async () => {
-    return await paymentRepo.getAll();
+    return await paymentsRepo.getAll();
 };
 
 
 const getPayment = async (paymentId, currentUser) => {
-    const existingPayment = await paymentRepo.getById(paymentId);
+    const existingPayment = await paymentsRepo.getById(paymentId);
 
     if (!existingPayment) throw new AppError("Payment is not found.", 404);
 
@@ -52,7 +56,7 @@ const getPayment = async (paymentId, currentUser) => {
 
 
 const getMyPayments = async (userId) => {
-    const existingPayments = await paymentRepo.getByUserId(userId);
+    const existingPayments = await paymentsRepo.getByUserId(userId);
 
     return existingPayments;
 };
@@ -70,11 +74,13 @@ const createCheckoutSession = async (orderId, currentUser) => {
 
     if (existingOrder.status !== "pending") throw new AppError("Only pending orders can be paid.", 409);
 
-    const existingPayment = await paymentRepo.getByOrderId(existingOrder._id);
+    const existingPayment = await paymentsRepo.getByOrderId(existingOrder._id);
 
     if (existingPayment) throw new AppError("Payment already exists for this order.", 409);
 
-    const session = await stripe.checkout.sessions.create({
+    const user = await usersRepo.getById(existingOrder.userId);
+
+    const sessionData = {
         mode: "payment",
         line_items: existingOrder.items.map(item => ({
             price_data: {
@@ -91,9 +97,15 @@ const createCheckoutSession = async (orderId, currentUser) => {
             orderId: String(existingOrder._id),
             userId: String(existingOrder.userId)
         }
-    });
+    };
 
-    const createdPayment = await paymentRepo.create({
+    if (user?.email) {
+        sessionData.customer_email = user.email;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionData);
+
+    const createdPayment = await paymentsRepo.create({
         orderId: existingOrder._id,
         userId: existingOrder.userId,
         provider: "stripe",
@@ -137,7 +149,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
                 if (!orderId) throw new AppError("Order id is missing from Stripe session metadata.", 400);
 
-                const existingPayment = await paymentRepo.getByOrderId(orderId, session);
+                const existingPayment = await paymentsRepo.getByOrderId(orderId, session);
 
                 if (!existingPayment) throw new AppError("Payment is not found for this order.", 404);
 
@@ -182,7 +194,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
                 await booksRepo.bulkUpdateStock(stockUpdates, session);
 
                 // Mark payment/order as paid
-                if (existingPayment.status !== "paid") await paymentRepo.update(existingPayment._id, { status: "paid" }, session);
+                if (existingPayment.status !== "paid") await paymentsRepo.update(existingPayment._id, { status: "paid" }, session);
 
                 if (existingOrder.status !== "paid") await ordersRepo.update(orderId, { status: "paid" }, session);
 
@@ -200,9 +212,9 @@ const handleStripeWebhook = async (rawBody, signature) => {
                     return;
                 }
 
-                const existingPayment = await paymentRepo.getByOrderId(orderId, session);
+                const existingPayment = await paymentsRepo.getByOrderId(orderId, session);
 
-                if (existingPayment && existingPayment.status === "pending") await paymentRepo.update(existingPayment._id, { status: "failed" }, session);
+                if (existingPayment && existingPayment.status === "pending") await paymentsRepo.update(existingPayment._id, { status: "failed" }, session);
 
                 const existingOrder = await ordersRepo.getById(orderId, session);
 
@@ -230,28 +242,28 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
 //     if (!allowedStatus.includes(newStatus)) throw new AppError("Invalid status.", 400);
 
-//     const existingPayment = await paymentRepo.getById(paymentId);
+//     const existingPayment = await paymentsRepo.getById(paymentId);
 
 //     if (!existingPayment) throw new AppError("Payment is not found.", 404);
 
 //     // Prevent changing paid payments back to pending, etc.
 //     if (existingPayment.status === "paid") throw new AppError("Paid payments cannot be modified.", 409);
 
-//     const updatedPayment = await paymentRepo.update(paymentId, { status: newStatus });
+//     const updatedPayment = await paymentsRepo.update(paymentId, { status: newStatus });
 
 //     return updatedPayment;
 // };
 
 
 const deletePayment = async (paymentId) => {
-    const existingPayment = await paymentRepo.getById(paymentId);
+    const existingPayment = await paymentsRepo.getById(paymentId);
 
     if (!existingPayment) throw new AppError("Payment is not found.", 404);
 
     // Prevent deleting paid payments
     if (existingPayment.status === "paid") throw new AppError("Paid payments cannot be deleted.", 409);
 
-    const deletedPayment = await paymentRepo.deleteById(paymentId);
+    const deletedPayment = await paymentsRepo.deleteById(paymentId);
 
     return deletedPayment;
 };
