@@ -24,11 +24,17 @@ const usersRepo = DBType === "mongo"
     : require("../users/usersRepository.fs");
 
 
-// const mapPayment = (dbPayment) => ({
-//     id: dbPayment.id,
-//     title: dbPayment.title,
-//     author: dbPayment.author,
-// });
+const mapPayment = (dbPayment) => ({
+    id: dbPayment.id,
+    orderId: dbPayment.orderId,
+    userId: dbPayment.userId,
+    provider: dbPayment.provider,
+    status: dbPayment.status,
+    totalPrice: dbPayment.totalPrice,
+    checkoutSessionId: dbPayment.checkoutSessionId,
+    createdAt: dbPayment.createdAt,
+    updatedAt: dbPayment.updatedAt
+});
 
 
 const markWebhookEventProcessed = async (eventId, session) => { // Helper
@@ -37,7 +43,7 @@ const markWebhookEventProcessed = async (eventId, session) => { // Helper
 
 
 const getAllPayments = async () => {
-    return await paymentsRepo.getAll();
+    return (await paymentsRepo.getAll()).map(mapPayment);
 };
 
 
@@ -51,14 +57,14 @@ const getPayment = async (paymentId, currentUser) => {
 
     if (!isAdmin && !isOwner) throw new AppError("Forbidden.", 403);
 
-    return existingPayment;
+    return mapPayment(existingPayment);
 };
 
 
 const getMyPayments = async (userId) => {
     const existingPayments = await paymentsRepo.getByUserId(userId);
 
-    return existingPayments;
+    return existingPayments.map(mapPayment);
 };
 
 
@@ -115,7 +121,7 @@ const createCheckoutSession = async (orderId, currentUser) => {
     });
 
     return {
-        payment: createdPayment,
+        payment: mapPayment(createdPayment),
         checkoutUrl: session.url,
         checkoutSessionId: session.id
     }
@@ -265,7 +271,7 @@ const deletePayment = async (paymentId) => {
 
     const deletedPayment = await paymentsRepo.deleteById(paymentId);
 
-    return deletedPayment;
+    return mapPayment(deletedPayment);
 };
 
 
