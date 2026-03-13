@@ -170,7 +170,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
                     return;
                 }
 
-                const targetedBooks = [];
+                const targetBooks = [];
 
                 // Validation of the stock first
                 for (const item of existingOrder.items) {
@@ -180,7 +180,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
                     if (book.stockQty < item.quantity) throw new AppError(`Not enough stock for "${book.title}".`, 409);
 
-                    targetedBooks.push(book);
+                    targetBooks.push(book);
                 }
 
                 // Preparing updates
@@ -188,7 +188,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
 
                 for (let i = 0; i < existingOrder.items.length; i++) {
                     const item = existingOrder.items[i];
-                    const book = targetedBooks[i];
+                    const book = targetBooks[i];
 
                     stockUpdates.push({
                         bookId: book._id,
@@ -241,6 +241,7 @@ const handleStripeWebhook = async (rawBody, signature) => {
         }
     });
 };
+
 
 // Deleted because stripe webhook is the only source of the truth
 // const updatePaymentStatus = async (paymentId, newStatus) => {

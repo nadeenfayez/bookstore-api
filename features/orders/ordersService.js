@@ -10,15 +10,24 @@ const booksRepo = DBType === "mongo"
     : require("../books/booksRepository.fs");
 
 
-// const mapOrder = (dbOrder) => ({
-//     id: dbOrder.id,
-//     title: dbOrder.title,
-//     author: dbOrder.author,
-// });
+const mapOrder = (dbOrder) => ({
+    id: dbOrder.id,
+    userId: dbOrder.userId,
+    items: dbOrder.items.map(item => ({
+        bookId: item.bookId,
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity
+    })),
+    totalPrice: dbOrder.totalPrice,
+    status: dbOrder.status,
+    createdAt: dbOrder.createdAt,
+    updatedAt: dbOrder.updatedAt
+});
 
 
 const getAllOrders = async () => {
-    return await ordersRepo.getAll();
+    return (await ordersRepo.getAll()).map(mapOrder);
 };
 
 
@@ -32,13 +41,14 @@ const getOrder = async (orderId, currentUser) => {
 
     if (!isAdmin && !isOwner) throw new AppError("Forbidden.", 403);
 
-    return existingOrder;
+    return mapOrder(existingOrder);
 };
+
 
 const getMyOrders = async (userId) => {
     const existingOrders = await ordersRepo.getByUserId(userId);
 
-    return existingOrders;
+    return existingOrders.map(mapOrder);
 };
 
 
@@ -99,7 +109,7 @@ const createOrder = async (userId, items) => {
 
     const createdOrder = await ordersRepo.create({ userId, items: orderItems, totalPrice: { amount: totalAmount, currency: orderCurrency }, status: "pending" });
 
-    return createdOrder;
+    return mapOrder(createdOrder);
 };
 
 
@@ -117,7 +127,7 @@ const updateOrderStatus = async (orderId, status) => {
 
     const updatedOrder = await ordersRepo.update(orderId, { status });
 
-    return updatedOrder;
+    return mapOrder(updatedOrder);
 };
 
 
@@ -131,7 +141,7 @@ const deleteOrder = async (orderId) => {
 
     const deletedOrder = await ordersRepo.deleteById(orderId);
 
-    return deletedOrder;
+    return mapOrder(deletedOrder);
 };
 
 

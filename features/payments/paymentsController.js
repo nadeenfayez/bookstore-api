@@ -65,6 +65,7 @@ const handleStripeWebhookController = async (req, res) => {
     }
 };
 
+
 // Deleted because stripe webhook is the only source of the truth
 // const updatePaymentStatusController = handleAsyncError(async (req, res) => {
 //     const { id } = req.params;
