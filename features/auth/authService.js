@@ -8,6 +8,16 @@ const { mapUser } = require("../users/usersService");
 const { hashRefreshToken, addRefreshToken } = require("../../utils/refreshTokenUtils");
 
 
+const mapAccessTokenPayload = (dbUser) => ({
+    sub: dbUser._id,
+    role: dbUser.role
+});
+
+const mapRefreshTokenPayload = (dbUser) => ({
+    sub: dbUser._id
+});
+
+
 const signUp = async (newUser, req) => {
     const { name, email, password, avatar } = newUser;  // Whitelisting fields
 
@@ -17,11 +27,12 @@ const signUp = async (newUser, req) => {
 
     const createdUser = usersRepo.create({ name, email, password: hashedPassword, avatar });
 
-    const tokenPayload = mapUser(createdUser);
+    const accessTokenPayload = mapAccessTokenPayload(createdUser);
+    const refreshTokenPayload = mapRefreshTokenPayload(createdUser);
 
-    const accessToken = generateAccessToken(tokenPayload, createdUser.id);
+    const accessToken = generateAccessToken(accessTokenPayload, createdUser.id);
 
-    const refreshToken = generateRefreshToken(tokenPayload, createdUser.id);
+    const refreshToken = generateRefreshToken(refreshTokenPayload, createdUser.id);
 
     const refreshTokenHash = hashRefreshToken(refreshToken);
 
@@ -30,7 +41,7 @@ const signUp = async (newUser, req) => {
     await usersRepo.save(createdUser);
 
     return {
-        user: tokenPayload,
+        user: mapUser(createdUser),
         accessToken,
         refreshToken
     }
@@ -48,11 +59,12 @@ const login = async (credentials, req) => {
 
     if (!isMatch) throw new AppError("Invalid email or password.", 401);
 
-    const tokenPayload = mapUser(existingUser);
+    const accessTokenPayload = mapAccessTokenPayload(existingUser);
+    const refreshTokenPayload = mapRefreshTokenPayload(existingUser);
 
-    const accessToken = generateAccessToken(tokenPayload, existingUser.id);
+    const accessToken = generateAccessToken(accessTokenPayload, existingUser.id);
 
-    const refreshToken = generateRefreshToken(tokenPayload, existingUser.id);
+    const refreshToken = generateRefreshToken(refreshTokenPayload, existingUser.id);
 
     const refreshTokenHash = hashRefreshToken(refreshToken);
 
@@ -61,7 +73,7 @@ const login = async (credentials, req) => {
     await usersRepo.save(existingUser);
 
     return {
-        user: tokenPayload,
+        user: mapUser(existingUser),
         accessToken,
         refreshToken
     }
@@ -82,11 +94,12 @@ const refreshAccessToken = async (refreshToken, req) => {   // Rotate a valid se
 
     tokenDoc.refreshTokens = tokenDoc.refreshTokens.filter(rt => rt.tokenHash !== refreshTokenHash);    // Remove old token (rotation)
 
-    const tokenPayload = mapUser(tokenDoc);
+    const accessTokenPayload = mapAccessTokenPayload(tokenDoc);
+    const refreshTokenPayload = mapRefreshTokenPayload(tokenDoc);
 
-    const newAccessToken = generateAccessToken(tokenPayload, tokenDoc.id);
+    const newAccessToken = generateAccessToken(accessTokenPayload, tokenDoc.id);
 
-    const newRefreshToken = generateRefreshToken(tokenPayload, tokenDoc.id);    // Rotation
+    const newRefreshToken = generateRefreshToken(refreshTokenPayload, tokenDoc.id);    // Rotation
 
     const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
 
@@ -122,11 +135,12 @@ const findOrCreateGoogleUser = async (idToken, req) => {
         existingUser.avatar = googleData.picture;
     }
 
-    const tokenPayload = mapUser(existingUser);
+    const accessTokenPayload = mapAccessTokenPayload(existingUser);
+    const refreshTokenPayload = mapRefreshTokenPayload(existingUser);
 
-    const accessToken = generateAccessToken(tokenPayload, existingUser.id);
+    const accessToken = generateAccessToken(accessTokenPayload, existingUser.id);
 
-    const refreshToken = generateRefreshToken(tokenPayload, existingUser.id);
+    const refreshToken = generateRefreshToken(refreshTokenPayload, existingUser.id);
 
     const refreshTokenHash = hashRefreshToken(refreshToken);
 
@@ -135,7 +149,7 @@ const findOrCreateGoogleUser = async (idToken, req) => {
     await usersRepo.save(existingUser);
 
     return {
-        user: tokenPayload,
+        user: mapUser(existingUser),
         accessToken,
         refreshToken
     }
@@ -153,6 +167,7 @@ const logout = async (refreshToken) => {
 
     await usersRepo.save(tokenDoc);
 };
+
 
 const logoutAll = async (userId) => {
     await usersRepo.invalidateAllTokens(userId);

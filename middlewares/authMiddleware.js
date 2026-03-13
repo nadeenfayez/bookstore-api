@@ -5,13 +5,16 @@ const AppError = require("../utils/AppError");
 const requireAuth = (req, res, next) => {
     const authHeader = req?.headers?.authorization;
 
-    const accessToken = authHeader?.substring(7);
+    const accessToken = authHeader?.startsWith("Bearer ")
+        ? authHeader.substring(7)
+        : null;
 
     if (!accessToken) throw new AppError("Missing access token.", 401);
 
     try {
         const decoded = verifyAccessToken(accessToken);
-        req.currentUser = { id: decoded.id, name: decoded.name, email: decoded.email, role: decoded.role };
+
+        req.currentUser = { id: decoded.sub, role: decoded.role };
         next();
     }
     catch (err) {

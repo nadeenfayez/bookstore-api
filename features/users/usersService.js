@@ -12,7 +12,9 @@ const mapUser = (dbUser) => ({
     name: dbUser.name,
     email: dbUser.email,
     role: dbUser.role,
-    avatar: dbUser.avatar
+    avatar: dbUser.avatar,
+    hasPassword: !!dbUser.password,
+    hasGoogleLogin: !!dbUser.googleId
 });
 
 

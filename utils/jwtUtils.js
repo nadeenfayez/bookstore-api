@@ -7,8 +7,7 @@ const generateAccessToken = (payload, userId) => {
     try {
         return jwt.sign(payload, accessTokenSecret, {
             expiresIn: accessTokenExpiry,
-            issuer: "bookstore-api",
-            subject: String(userId)
+            issuer: "bookstore-api"
         });
     }
     catch (err) {
@@ -23,8 +22,7 @@ const generateRefreshToken = (payload, userId) => {
     try {
         return jwt.sign(payload, refreshTokenSecret, {
             expiresIn: refreshTokenExpiry,
-            issuer: "bookstore-api",
-            subject: String(userId)
+            issuer: "bookstore-api"
         });
     }
     catch (err) {

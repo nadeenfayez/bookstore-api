@@ -6,6 +6,7 @@ const hashRefreshToken = (refreshtoken) => {
     return crypto.createHash("sha256").update(refreshtoken).digest("hex");
 };
 
+
 const addRefreshToken = (userDoc, refreshTokenHash, req) => {
     const now = Date.now();
 
