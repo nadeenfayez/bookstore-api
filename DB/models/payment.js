@@ -30,7 +30,10 @@ const paymentSchema = new mongoose.Schema({
     },
     checkoutSessionId: {
         type: String
-    }
+    },
+    paymentIntentId: {
+        type: String
+    },
 },
     {
         timestamps: true,

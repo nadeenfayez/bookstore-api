@@ -59,6 +59,6 @@ app.use(globalErrorHandler);
 
 
 app.listen(PORT, (err) => {
-    if (err) return console.log("Failed to connect to the server!");
+    if (err) return console.error("Failed to connect to the server!");
     console.log(`Express server listening on port ${PORT}`);
 });

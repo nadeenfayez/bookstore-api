@@ -32,6 +32,7 @@ const mapPayment = (dbPayment) => ({
     status: dbPayment.status,
     totalPrice: dbPayment.totalPrice,
     checkoutSessionId: dbPayment.checkoutSessionId,
+    paymentIntentId: dbPayment.paymentIntentId,
     createdAt: dbPayment.createdAt,
     updatedAt: dbPayment.updatedAt
 });
@@ -162,6 +163,13 @@ const handleStripeWebhook = async (rawBody, signature) => {
                 const existingOrder = await ordersRepo.getById(orderId, session);
 
                 if (!existingOrder) throw new AppError("Order is not found.", 404);
+
+                // Save paymentIntentId when Stripe provides it
+                const paymentIntentId = dataObject.payment_intent || undefined;
+
+                if (paymentIntentId && existingPayment.paymentIntentId !== paymentIntentId) {
+                    await paymentsRepo.update(existingPayment._id, { paymentIntentId }, session);
+                }
 
                 // idempotency: if already paid, do nothing
                 if (existingPayment.status === "paid" && existingOrder.status === "paid") {
