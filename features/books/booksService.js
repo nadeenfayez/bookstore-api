@@ -10,6 +10,7 @@ const mapBook = (dbBook) => ({
     id: dbBook.id,
     title: dbBook.title,
     author: dbBook.author,
+    description: dbBook.description
 });
 
 
@@ -28,13 +29,13 @@ const getBook = async (bookId) => {
 
 
 const createBook = async (newBook) => {
-    const { title, author, price, stockQty, isActive } = newBook;  // Whitelisting fields
+    const { title, author, description, price, stockQty, isActive } = newBook;  // Whitelisting fields
 
     const existingBook = await booksRepo.getByTitle(title);
 
     if (existingBook) throw new AppError("Book title already exists.", 409);
 
-    const createdBook = await booksRepo.create({ title, author, price, stockQty, isActive });
+    const createdBook = await booksRepo.create({ title, author, description, price, stockQty, isActive });
 
     return mapBook(createdBook);
 };
@@ -45,13 +46,13 @@ const updateBook = async (bookId, updates) => {
 
     if (!existingBook) throw new AppError("Book is not found.", 404);
 
-    const { title, author, price, stockQty, isActive } = updates;  // Whitelisting fields
+    const { title, author, description, price, stockQty, isActive } = updates;  // Whitelisting fields
 
     if (title !== undefined && title !== existingBook.title) {
         if (await booksRepo.getByTitle(title)) throw new AppError("Book title already exists.", 409);
     }
 
-    const updatedBook = await booksRepo.update(bookId, { title, author, price, stockQty, isActive });
+    const updatedBook = await booksRepo.update(bookId, { title, author, description, price, stockQty, isActive });
 
     return mapBook(updatedBook);
 };

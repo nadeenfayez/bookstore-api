@@ -1,14 +1,23 @@
+const { DBType } = require("../../configs/envConfigs");
 const gemini = require("../../configs/gemini");
 const AppError = require("../../utils/AppError");
 
 
-// const mapAccessTokenPayload = (dbUser) => ({
-//     sub: dbUser._id,
-//     role: dbUser.role
-// });
+const booksRepo = DBType === "mongo"
+    ? require("../books/booksRepository.mongo")
+    : require("../books/booksRepository.fs");
 
 
-const generateBookSummary = async (title, description) => {
+const generateBookSummary = async (bookId) => {
+    const existingBook = await booksRepo.getById(bookId);
+
+    if (!existingBook) throw new AppError("Book is not found.", 404);
+
+    if (!existingBook.isActive) throw new AppError("Book is not available.", 404);
+
+    if (!existingBook.description) throw new AppError("This book does not have a description to summarize.", 400);
+
+
     const prompt = `
     You are a helpful bookstore assistant.
 
@@ -17,16 +26,24 @@ const generateBookSummary = async (title, description) => {
     Do not use bullet points.
     Do not mention that you are an AI.
 
-    Title: ${title}
-    Description: ${description}
+    Title: ${existingBook.title}
+    Author: ${existingBook.author || "Unknown"}
+    Description: ${existingBook.description}
     `;
 
     const response = await gemini.models.generateContent({
-        model: "gemini-3.1-flash-lite-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt
     });
 
-    return response?.text?.trim();
+    return {
+        book: {
+            id: existingBook.id,
+            title: existingBook.title,
+            author: existingBook.author
+        },
+        summary: response?.text?.trim()
+    };
 };
 
 

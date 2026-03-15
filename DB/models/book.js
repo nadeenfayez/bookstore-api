@@ -11,6 +11,10 @@ const bookSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    description: {
+        type: String,
+        trim: true
+    },
     price: {
         amount: { type: Number, required: [true, "Price amount is required"], min: 0 },
         currency: { type: String, required: true, default: "EGP", uppercase: true }

@@ -44,14 +44,14 @@ const createBookController = handleAsyncError(async (req, res) => {
 
 const updateBookController = handleAsyncError(async (req, res) => {
     const { id } = req.params;
-    const { title, author, price, stockQty, isActive } = req.body ?? {};
+    const { title, author, description, price, stockQty, isActive } = req.body ?? {};
 
     const hasAtLeastOneField =
         title !== undefined || author !== undefined ||
-        price !== undefined || stockQty !== undefined ||
-        isActive !== undefined;
+        price !== undefined || description !== undefined ||
+        stockQty !== undefined || isActive !== undefined;
 
-    if (!hasAtLeastOneField) throw new AppError("At least one field (title, author, price, stock quantity or isActive) is required.", 400); // HTTP-level validation
+    if (!hasAtLeastOneField) throw new AppError("At least one field (title, author, description, price, stock quantity or isActive) is required.", 400); // HTTP-level validation
 
     if (price !== undefined && price.amount === undefined) throw new AppError("Price amount is required when price is provided.", 400);  // HTTP-level validation
 
