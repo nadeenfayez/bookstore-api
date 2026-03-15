@@ -13,6 +13,7 @@ const usersFilePath = process.env.USERS_FILE_PATH;
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const clientUrl = process.env.CLIENT_URL;
+const geminiApiKey = process.env.GEMINI_API_KEY;
 const mode = process.env.MODE;
 const mongoURI = process.env.MONGO_URI;
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -33,6 +34,7 @@ module.exports = {
     stripeSecretKey,
     stripeWebhookSecret,
     clientUrl,
+    geminiApiKey,
     mode,
     mongoURI,
     googleClientId,
