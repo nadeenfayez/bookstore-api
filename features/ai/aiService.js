@@ -1,11 +1,26 @@
 const { DBType } = require("../../configs/envConfigs");
 const gemini = require("../../configs/gemini");
+const { Type } = require("@google/genai");
 const AppError = require("../../utils/AppError");
 
 
 const booksRepo = DBType === "mongo"
     ? require("../books/booksRepository.mongo")
     : require("../books/booksRepository.fs");
+
+
+const recommendationSchema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            id: {
+                type: Type.STRING
+            }
+        },
+        required: ["id"]
+    }
+};
 
 
 const generateBookSummary = async (bookId) => {
@@ -61,7 +76,7 @@ const recommendBooksByBookId = async (bookId) => {
     if (candidateBooks.length === 0) throw new AppError("No candidate books available for recommendations.", 404);
 
     const candidatesText = candidateBooks.map(book => `
-        ID: ${book._id}
+        ID: ${book.id}
         Title: ${book.title}
         Author: ${book.author || "Unknown"}
         Description: ${book.description || "No description available"}
@@ -97,7 +112,11 @@ const recommendBooksByBookId = async (bookId) => {
 
     const response = await gemini.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: recommendationSchema
+        }
     });
 
     const rawText = response?.text?.trim();
