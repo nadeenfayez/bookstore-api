@@ -16,6 +16,20 @@ const generateBookSummaryByBookIdController = handleAsyncError(async (req, res) 
 });
 
 
+const recommendBooksByBookIdController = handleAsyncError(async (req, res) => {
+    const bookId = req.params.id;
+
+    const result = await aiService.recommendBooksByBookId(bookId);
+
+    res.status(200).json({
+        success: true,
+        sourceBook: result.sourceBook,
+        recommendations: result.recommendations
+    });
+});
+
+
 module.exports = {
-    generateBookSummaryByBookIdController
+    generateBookSummaryByBookIdController,
+    recommendBooksByBookIdController
 };

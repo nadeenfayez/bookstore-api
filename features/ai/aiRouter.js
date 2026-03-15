@@ -1,5 +1,5 @@
 // const requireAuth = require("../../middlewares/authMiddleware");
-const { generateBookSummaryByBookIdController } = require("./aiController");
+const { generateBookSummaryByBookIdController, recommendBooksByBookIdController } = require("./aiController");
 
 
 const express = require("express");
@@ -9,6 +9,9 @@ const router = express.Router();
 
 // Public routes
 router.post("/books/:id/summary", generateBookSummaryByBookIdController);
+
+router.post("/books/:id/recommendations", recommendBooksByBookIdController);
+
 
 // // Authenticated routes
 // router.delete("/sessions/current", requireAuth, logoutController);  // Self-service endpoint

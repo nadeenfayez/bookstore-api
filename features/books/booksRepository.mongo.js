@@ -21,6 +21,11 @@ const getByTitle = async (bookTitle) => {
     return targetBook;
 };
 
+const getActiveExcludingId = async (bookId) => {
+    const targetBooks = await Book.find({ _id: { $ne: bookId }, isActive: true });
+    return targetBooks;
+};
+
 const create = async (bookData) => {
     const newBook = new Book(bookData);
     return await newBook.save();
@@ -54,6 +59,7 @@ module.exports = {
     getById,
     getActiveByIds,
     getByTitle,
+    getActiveExcludingId,
     create,
     update,
     deleteById,
