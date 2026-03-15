@@ -48,7 +48,7 @@ app.get("/payment-success", (req, res) => {
 app.get("/payment-cancel", (req, res) => {
     res.status(200).json({
         success: false,
-        message: "Payment canceled."
+        message: "Payment canceled. You can try again."
     });
 });
 
