@@ -9,6 +9,16 @@ const booksRepo = DBType === "mongo"
     : require("../books/booksRepository.fs");
 
 
+const bookSummarySchema = {
+    type: Type.OBJECT,
+    properties: {
+        summary: {
+            type: Type.STRING
+        }
+    },
+    required: ["summary"]
+};
+
 const recommendationSchema = {
     type: Type.ARRAY,
     items: {
@@ -27,13 +37,13 @@ const recommendationSchema = {
 
 
 const generateBookSummary = async (bookId) => {
-    const existingBook = await booksRepo.getById(bookId);
+    const book = await booksRepo.getById(bookId);
 
-    if (!existingBook) throw new AppError("Book is not found.", 404);
+    if (!book) throw new AppError("Book is not found.", 404);
 
-    if (!existingBook.isActive) throw new AppError("Book is not available.", 404);
+    if (!book.isActive) throw new AppError("Book is not available.", 404);
 
-    if (!existingBook.description) throw new AppError("This book does not have a description to summarize.", 400);
+    if (!book.description) throw new AppError("This book does not have a description to summarize.", 400);
 
 
     const prompt = `
@@ -43,25 +53,44 @@ const generateBookSummary = async (bookId) => {
     Keep it between 50 and 100 words.
     Do not use bullet points.
     Do not mention that you are an AI.
+    Return only a JSON object.
+    Each JSON object must contain only: summary
 
-    Title: ${existingBook.title}
-    Author: ${existingBook.author || "Unknown"}
-    Description: ${existingBook.description}
+    Title: ${book.title}
+    Author: ${book.author || "Unknown"}
+    Description: ${book.description}
     `;
 
 
     const response = await gemini.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: bookSummarySchema
+        }
     });
+
+    const rawText = response?.text?.trim();
+
+    let parsed;
+
+    try {
+        parsed = JSON.parse(rawText);
+    }
+    catch {
+        throw new AppError("AI returned an invalid summary format.", 500);
+    }
+
+    if (!parsed?.summary || typeof parsed?.summary !== "string") throw new AppError("AI returned an invalid summary structure.", 500);
 
     return {
         book: {
-            id: existingBook.id,
-            title: existingBook.title,
-            author: existingBook.author
+            id: book.id,
+            title: book.title,
+            author: book.author
         },
-        summary: response?.text?.trim()
+        summary: parsed.summary.trim()
     };
 };
 
@@ -128,7 +157,6 @@ const recommendBooksByBookId = async (bookId) => {
     });
 
     const rawText = response?.text?.trim();
-    console.log("rawText", rawText);
 
     let parsed;
 
