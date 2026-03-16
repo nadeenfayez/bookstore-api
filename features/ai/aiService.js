@@ -35,6 +35,22 @@ const recommendationSchema = {
     }
 };
 
+const chatResponseSchema = {
+    type: Type.OBJECT,
+    properties: {
+        answer: {
+            type: Type.STRING
+        },
+        matchedBookIds: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.STRING
+            }
+        }
+    },
+    required: ["answer", "matchedBookIds"]
+};
+
 
 const generateBookSummary = async (bookId) => {
     const book = await booksRepo.getById(bookId);
@@ -199,7 +215,87 @@ const recommendBooksByBookId = async (bookId) => {
 };
 
 
+const chatWithBookstore = async (message) => {
+    const books = await booksRepo.getAllActive();
+
+    if (books.length === 0) throw new AppError("No active books available in the store.", 404);
+
+    const compactCatalog = books.map(book => `
+        ID: ${book.id}
+        Title: ${book.title}
+        Author: ${book.author || "Unknown"}
+        Description: ${book.description || "No description available"}
+        `).join("\n---\n");
+
+
+    const prompt = `
+    You are a helpful bookstore assistant.
+
+    A user is asking about books in this bookstore.
+
+    User message:
+    ${message}
+
+    Below is the bookstore catalog. Use only these books.
+    Do not invent books that are not listed here.
+
+    Rules:
+    - Answer only using books from the catalog below
+    - Be helpful and concise
+    - Return only valid book IDs from the catalog
+    - Do not include markdown
+    - Do not invent IDs
+
+    Catalog:
+    ${compactCatalog}
+    `;
+
+
+    const response = await gemini.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: chatResponseSchema
+        }
+    });
+
+    const rawText = response?.text?.trim();
+
+    let parsed;
+
+    try {
+        parsed = JSON.parse(rawText);
+    }
+    catch {
+        throw new AppError("AI returned an invalid chat response format.", 500);
+    }
+
+    if (!parsed?.answer || typeof parsed?.answer !== "string" || !parsed?.matchedBookIds || !Array.isArray(parsed.matchedBookIds)) throw new AppError("AI returned an invalid chat response structure.", 500);
+
+    const availableBooksIds = books.map(book => book.id);
+
+    const matchedBookIds = parsed.matchedBookIds
+        .filter(Boolean)
+        .filter(id => availableBooksIds.includes(id));
+
+    const matchedBooks = books.filter(book => matchedBookIds.includes(book.id))
+        .map(book => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            price: book.price
+        }));
+
+    return {
+        answer: parsed.answer.trim(),
+        matchedBooks
+    };
+};
+
+
 module.exports = {
     generateBookSummary,
-    recommendBooksByBookId
+    recommendBooksByBookId,
+    chatWithBookstore
 };

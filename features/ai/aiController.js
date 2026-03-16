@@ -29,7 +29,23 @@ const recommendBooksByBookIdController = handleAsyncError(async (req, res) => {
 });
 
 
+const chatWithBookstoreController = handleAsyncError(async (req, res) => {
+    const message = req.body;
+
+    if (!message) throw new AppError("Message is required.", 400);  // HTTP-level validation
+
+    const result = await aiService.chatWithBookstore(message);
+
+    res.status(200).json({
+        success: true,
+        answer: result.answer,
+        matchedBooks: result.matchedBooks
+    });
+});
+
+
 module.exports = {
     generateBookSummaryByBookIdController,
-    recommendBooksByBookIdController
+    recommendBooksByBookIdController,
+    chatWithBookstoreController
 };

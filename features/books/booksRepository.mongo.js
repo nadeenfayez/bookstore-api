@@ -11,19 +11,24 @@ const getById = async (bookId, session = null) => {
     return targetBook;
 };
 
+const getAllActive = async () => {
+    const targetBooks = await Book.find({ isActive: true });
+    return targetBooks;
+};
+
 const getActiveByIds = async (bookIds) => {
     const targetBooks = await Book.find({ _id: { $in: bookIds }, isActive: true });
+    return targetBooks;
+};
+
+const getActiveExcludingId = async (bookId) => {
+    const targetBooks = await Book.find({ _id: { $ne: bookId }, isActive: true });
     return targetBooks;
 };
 
 const getByTitle = async (bookTitle) => {
     const targetBook = await Book.findOne({ title: bookTitle });
     return targetBook;
-};
-
-const getActiveExcludingId = async (bookId) => {
-    const targetBooks = await Book.find({ _id: { $ne: bookId }, isActive: true });
-    return targetBooks;
 };
 
 const create = async (bookData) => {
@@ -57,9 +62,10 @@ const bulkUpdateStock = async (updates, session = null) => {
 module.exports = {
     getAll,
     getById,
+    getAllActive,
     getActiveByIds,
-    getByTitle,
     getActiveExcludingId,
+    getByTitle,
     create,
     update,
     deleteById,

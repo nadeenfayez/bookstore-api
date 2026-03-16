@@ -1,5 +1,5 @@
 // const requireAuth = require("../../middlewares/authMiddleware");
-const { generateBookSummaryByBookIdController, recommendBooksByBookIdController } = require("./aiController");
+const { generateBookSummaryByBookIdController, recommendBooksByBookIdController, chatWithBookstoreController } = require("./aiController");
 
 
 const express = require("express");
@@ -11,6 +11,8 @@ const router = express.Router();
 router.post("/books/:id/summary", generateBookSummaryByBookIdController);
 
 router.post("/books/:id/recommendations", recommendBooksByBookIdController);
+
+router.post("/chat", chatWithBookstoreController);
 
 
 // // Authenticated routes
