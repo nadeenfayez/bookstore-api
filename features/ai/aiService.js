@@ -16,9 +16,12 @@ const recommendationSchema = {
         properties: {
             id: {
                 type: Type.STRING
+            },
+            reason: {
+                type: Type.STRING
             }
         },
-        required: ["id"]
+        required: ["id", "reason"]
     }
 };
 
@@ -45,6 +48,7 @@ const generateBookSummary = async (bookId) => {
     Author: ${existingBook.author || "Unknown"}
     Description: ${existingBook.description}
     `;
+
 
     const response = await gemini.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -82,8 +86,6 @@ const recommendBooksByBookId = async (bookId) => {
         Description: ${book.description || "No description available"}
         `).join("\n---\n");
 
-    console.log("candidatesText", candidatesText);
-
 
     const prompt = `
     You are a helpful bookstore recommendation assistant.
@@ -100,15 +102,21 @@ const recommendBooksByBookId = async (bookId) => {
 
     Rules:
     - Recommend only from the candidate books below
+    - Return exactly 3 items when possible
+    - Return only valid candidate IDs
     - Return only a JSON array
-    - Each item must contain only: id
-    - Do not include explanations
+    - Each item must contain:
+        - id
+        - reason
+    - The reason must be short and clear
+    - Do not include explanations outside the JSON
     - Do not include markdown
     - Do not invent IDs
 
     Candidate books:
     ${candidatesText}
     `;
+
 
     const response = await gemini.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -133,17 +141,24 @@ const recommendBooksByBookId = async (bookId) => {
 
     if (!Array.isArray(parsed)) throw new AppError("AI returned an invalid recommendation structure.", 500);
 
-    const recommendedIds = parsed.map(item => item?.id).filter(Boolean);
+    const candidateBooksIds = candidateBooks.map(book => book.id);
 
-    const recommendedBooks = candidateBooks
-        .filter(book => recommendedIds.includes(book.id))
-        .slice(0, 3)
-        .map(book => ({
+    const validRecommendations = parsed
+        .filter(item => item?.id && item?.reason)
+        .filter(item => candidateBooksIds.includes(item.id))
+        .slice(0, 3);
+
+    const recommendedBooks = validRecommendations.map(rec => {
+        const book = candidateBooks.find(book => book.id === rec.id);
+
+        return {
             id: book.id,
             title: book.title,
             author: book.author,
-            price: book.price
-        }));
+            price: book.price,
+            reason: rec.reason
+        }
+    });
 
     return {
         sourceBook: {
