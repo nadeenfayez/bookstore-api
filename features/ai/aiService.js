@@ -8,6 +8,10 @@ const booksRepo = DBType === "mongo"
     ? require("../books/booksRepository.mongo")
     : require("../books/booksRepository.fs");
 
+const aiCacheRepo = DBType === "mongo"
+    ? require("./aiCacheRepository.mongo")
+    : require("./aiCacheRepository.fs");
+
 
 const bookSummarySchema = {
     type: Type.OBJECT,
@@ -61,6 +65,17 @@ const generateBookSummary = async (bookId) => {
 
     if (!book.description) throw new AppError("This book does not have a description to summarize.", 400);
 
+    if (book.aiSummary) {
+        return {
+            book: {
+                id: book.id,
+                title: book.title,
+                author: book.author
+            },
+            summary: book.aiSummary
+        };
+    }
+
 
     const prompt = `
     You are a helpful bookstore assistant.
@@ -100,6 +115,8 @@ const generateBookSummary = async (bookId) => {
 
     if (!parsed?.summary || typeof parsed?.summary !== "string") throw new AppError("AI returned an invalid summary structure.", 500);
 
+    await booksRepo.update(bookId, { aiSummary: parsed.summary.trim() });
+
     return {
         book: {
             id: book.id,
@@ -123,6 +140,36 @@ const recommendBooksByBookId = async (bookId) => {
     const candidateBooks = await booksRepo.getActiveExcludingId(bookId);
 
     if (candidateBooks.length === 0) throw new AppError("No candidate books available for recommendations.", 404);
+
+    const aiCache = await aiCacheRepo.getByBookId(bookId);
+
+    if (aiCache) {
+        const candidateBooksIds = candidateBooks.map(book => book.id);
+
+        const validRecommendations = aiCache.recommendedBooks
+            .filter(rec => candidateBooksIds.includes(String(rec.id)));
+
+        const recommendedBooks = validRecommendations.map(rec => {
+            const book = candidateBooks.find(book => book.id == rec.id);
+
+            return {
+                id: book.id,
+                title: book.title,
+                author: book.author,
+                price: book.price,
+                reason: rec.reason
+            }
+        });
+
+        return {
+            sourceBook: {
+                id: sourceBook.id,
+                title: sourceBook.title,
+                author: sourceBook.author
+            },
+            recommendations: recommendedBooks
+        };
+    }
 
     const candidatesText = candidateBooks.map(book => `
         ID: ${book.id}
@@ -203,6 +250,8 @@ const recommendBooksByBookId = async (bookId) => {
             reason: rec.reason
         }
     });
+
+    await aiCacheRepo.create({ sourceBookId: sourceBook.id, recommendedBooks });
 
     return {
         sourceBook: {

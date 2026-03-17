@@ -28,6 +28,10 @@ const bookSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    aiSummary: {
+        type: String,
+        trim: true
     }
 },
     {
