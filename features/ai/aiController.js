@@ -30,9 +30,9 @@ const recommendBooksByBookIdController = handleAsyncError(async (req, res) => {
 
 
 const chatWithBookstoreController = handleAsyncError(async (req, res) => {
-    const message = req.body;
+    const { message } = req.body;
 
-    if (!message) throw new AppError("Message is required.", 400);  // HTTP-level validation
+    if (!message || typeof message !== "string") throw new AppError("Message is required.", 400);  // HTTP-level validation
 
     const result = await aiService.chatWithBookstore(message);
 

@@ -229,22 +229,31 @@ const chatWithBookstore = async (message) => {
 
 
     const prompt = `
-    You are a helpful bookstore assistant.
+    You are a bookstore recommendation assistant.
 
-    A user is asking about books in this bookstore.
+    A user is asking for book recommendations from this bookstore.
+    Your job is to answer the user's request using ONLY the books in the catalog below.
 
     User message:
-    ${message}
+    ${message.trim()}
 
-    Below is the bookstore catalog. Use only these books.
-    Do not invent books that are not listed here.
+    Your task:
+    - Understand what the user wants
+    - Recommend only books from the catalog below
+    - Choose only books that are genuinely relevant
+    - Do not mention unrelated books
+    - Do not give a general store introduction
+    - Answer the user's request directly
+    - If the request is about a topic, choose only books that clearly match that topic
+    - Be helpful and concise
+    - If no books are a strong match, clearly say so
 
     Rules:
-    - Answer only using books from the catalog below
-    - Be helpful and concise
     - Return only valid book IDs from the catalog
+    - Do not invent books
     - Do not include markdown
-    - Do not invent IDs
+    - matchedBookIds must contain only relevant books
+    - If no books match, return an empty matchedBookIds array
 
     Catalog:
     ${compactCatalog}
