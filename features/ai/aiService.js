@@ -152,7 +152,7 @@ const recommendBooksByBookId = async (bookId) => {
             .filter(rec => candidateBooksIds.includes(String(rec.id)));
 
         const recommendedBooks = validRecommendations.map(rec => {
-            const book = candidateBooks.find(book => book.id == String(rec.id));
+            const book = candidateBooks.find(book => book.id === String(rec.id));
 
             return {
                 id: book.id,

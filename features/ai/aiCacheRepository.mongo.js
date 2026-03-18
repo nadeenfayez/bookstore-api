@@ -13,9 +13,14 @@ const deleteByBookId = async (bookId) => {
     return await AiCache.findOneAndDelete({ sourceBookId: bookId });
 };
 
+const deleteAll = async () => {
+    return await AiCache.deleteMany({});
+};
+
 
 module.exports = {
     getByBookId,
     upsertByBookId,
-    deleteByBookId
+    deleteByBookId,
+    deleteAll
 };

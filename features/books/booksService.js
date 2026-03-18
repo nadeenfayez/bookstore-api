@@ -58,10 +58,20 @@ const updateBook = async (bookId, updates) => {
 
     const updateData = { title, author, description, price, stockQty, isActive };
 
-    if (description && description !== existingBook.description) {
-        updateData.aiSummary = null;    // Invalidate summary cache
-        await aiCacheRepo.deleteByBookId(bookId);   // Invalidate recommendations cache
-    };
+
+    const summaryRelevantChanged = (title !== undefined && title !== existingBook.title) ||
+        (author !== undefined && author !== existingBook.author) || (description !== undefined && description !== existingBook.description);
+
+    const recommendationsRelevantChanged = summaryRelevantChanged ||
+        (price !== undefined && (price.amount !== existingBook.price.amount || price.currency !== existingBook.price.currency)) ||
+        (isActive !== undefined && isActive !== existingBook.isActive);
+
+
+    if (summaryRelevantChanged) updateData.aiSummary = null;    // Invalidate summary cache
+
+    if (recommendationsRelevantChanged) await aiCacheRepo.deleteAll();   // Invalidate recommendations cache
+
+    // await aiCacheRepo.deleteByBookId(bookId);   // Invalidate recommendations cache
 
     const updatedBook = await booksRepo.update(bookId, updateData);
 
