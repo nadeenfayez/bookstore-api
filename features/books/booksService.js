@@ -5,6 +5,10 @@ const booksRepo = DBType === "mongo"
     ? require("./booksRepository.mongo")
     : require("./booksRepository.fs");
 
+const aiCacheRepo = DBType === "mongo"
+    ? require("../ai/aiCacheRepository.mongo")
+    : require("../ai/aiCacheRepository.fs");
+
 
 const mapBook = (dbBook) => ({
     id: dbBook.id,
@@ -52,7 +56,14 @@ const updateBook = async (bookId, updates) => {
         if (await booksRepo.getByTitle(title)) throw new AppError("Book title already exists.", 409);
     }
 
-    const updatedBook = await booksRepo.update(bookId, { title, author, description, price, stockQty, isActive });
+    const updateData = { title, author, description, price, stockQty, isActive };
+
+    if (description && description !== existingBook.description) {
+        updateData.aiSummary = null;    // Invalidate summary cache
+        await aiCacheRepo.deleteByBookId(bookId);   // Invalidate recommendations cache
+    };
+
+    const updatedBook = await booksRepo.update(bookId, updateData);
 
     return mapBook(updatedBook);
 };

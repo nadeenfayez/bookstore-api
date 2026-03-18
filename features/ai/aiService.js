@@ -115,7 +115,9 @@ const generateBookSummary = async (bookId) => {
 
     if (!parsed?.summary || typeof parsed?.summary !== "string") throw new AppError("AI returned an invalid summary structure.", 500);
 
-    await booksRepo.update(bookId, { aiSummary: parsed.summary.trim() });
+    const summary = parsed.summary.trim();
+
+    await booksRepo.update(bookId, { aiSummary: summary });
 
     return {
         book: {
@@ -123,7 +125,7 @@ const generateBookSummary = async (bookId) => {
             title: book.title,
             author: book.author
         },
-        summary: parsed.summary.trim()
+        summary
     };
 };
 
@@ -150,7 +152,7 @@ const recommendBooksByBookId = async (bookId) => {
             .filter(rec => candidateBooksIds.includes(String(rec.id)));
 
         const recommendedBooks = validRecommendations.map(rec => {
-            const book = candidateBooks.find(book => book.id == rec.id);
+            const book = candidateBooks.find(book => book.id == String(rec.id));
 
             return {
                 id: book.id,
@@ -251,7 +253,7 @@ const recommendBooksByBookId = async (bookId) => {
         }
     });
 
-    await aiCacheRepo.create({ sourceBookId: sourceBook.id, recommendedBooks });
+    await aiCacheRepo.upsertByBookId(sourceBook.id, { sourceBookId: sourceBook.id, recommendedBooks });
 
     return {
         sourceBook: {

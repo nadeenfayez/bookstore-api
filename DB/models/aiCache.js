@@ -4,13 +4,11 @@ const recommendedBooksSchema = new mongoose.Schema({
     id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Book",
-        unique: true,
         required: true
     },
     title: {
         type: String,
         required: [true, "Title is required"],
-        unique: true,
         trim: true
     },
     author: {
