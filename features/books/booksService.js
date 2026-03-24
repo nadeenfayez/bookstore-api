@@ -41,6 +41,8 @@ const createBook = async (newBook) => {
 
     const createdBook = await booksRepo.create({ title, author, description, price, stockQty, isActive });
 
+    await aiCacheRepo.deleteAll();   // Invalidate recommendations cache because new candidate exists
+
     return mapBook(createdBook);
 };
 
