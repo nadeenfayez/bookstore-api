@@ -1,15 +1,16 @@
 const mongoose = require("mongoose");
 const { mongoURI } = require("../configs/envConfigs");
 
+
+// Connection events (for monitoring & debugging)
+mongoose.connection.on("connecting", () => console.log("MongoDB connecting..."));
+mongoose.connection.on("connected", () => console.log("MongoDB connected successfully."));
+mongoose.connection.on("error", (err) => console.error("MongoDB connection error:", err));
+mongoose.connection.on("disconnected", () => console.log("MongoDB disconnected."));
+
+// Connection function
 const connectDB = async () => {
-    try {
-        await mongoose.connect(mongoURI);
-        console.log("MongoDB connected successfully");
-    }
-    catch (err) {
-        console.error("Failed to connect to MongoDB:", err.message);
-        process.exit(1); // stop app if DB fails
-    }
+    await mongoose.connect(mongoURI);
 };
 
 
