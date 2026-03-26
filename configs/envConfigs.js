@@ -1,6 +1,6 @@
 process.loadEnvFile();
 
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 const bcryptSalt = +process.env.BCRYPT_SALT;
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const accessTokenExpiry = process.env.ACCESS_TOKEN_EXPIRY;
@@ -14,6 +14,7 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const clientUrl = process.env.CLIENT_URL;
 const geminiApiKey = process.env.GEMINI_API_KEY;
+const redisUrl = process.env.REDIS_URL;
 const mode = process.env.MODE;
 const mongoURI = process.env.MONGO_URI;
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -21,7 +22,7 @@ const DBType = process.env.DB_TYPE;
 
 
 module.exports = {
-    PORT,
+    port,
     bcryptSalt,
     accessTokenSecret,
     accessTokenExpiry,
@@ -35,6 +36,7 @@ module.exports = {
     stripeWebhookSecret,
     clientUrl,
     geminiApiKey,
+    redisUrl,
     mode,
     mongoURI,
     googleClientId,

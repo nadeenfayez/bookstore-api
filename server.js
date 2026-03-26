@@ -7,12 +7,13 @@ const paymentsRouter = require("./features/payments/paymentsRouter");
 const aiRouter = require("./features/ai/aiRouter");
 const authRouter = require("./features/auth/authRouter");
 const loggerMiddleware = require("./middlewares/loggerMiddleware");
-const { PORT } = require("./configs/envConfigs");
+const { port } = require("./configs/envConfigs");
 const globalErrorHandler = require("./middlewares/globalErrorHandler");
 const notFoundHandler = require("./middlewares/notFoundHandler");
 const connectDB = require("./DB/connection");
 const cookieParser = require("cookie-parser");
 const { handleStripeWebhookController } = require("./features/payments/paymentsController");
+const redisClient = require("./configs/redis");
 
 
 const app = express();
@@ -59,8 +60,20 @@ app.use(notFoundHandler);
 
 app.use(globalErrorHandler);
 
+const startServer = async () => {
+    try {
+        await redisClient.connect();
 
-app.listen(PORT, (err) => {
-    if (err) return console.error("Failed to connect to the server!");
-    console.log(`Express server listening on port ${PORT}`);
-});
+        app.listen(port, () => console.log(`Express server listening on port ${port}`));
+    } catch (err) {
+        console.error("Failed to connect to the server:", err);
+        process.exit(1);
+    }
+};
+
+startServer();
+
+// app.listen(port, (err) => {
+//     if (err) return console.error("Failed to connect to the server!");
+//     console.log(`Express server listening on port ${port}`);
+// });
