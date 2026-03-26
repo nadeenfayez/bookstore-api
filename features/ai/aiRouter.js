@@ -1,4 +1,4 @@
-// const requireAuth = require("../../middlewares/authMiddleware");
+const requireAuth = require("../../middlewares/authMiddleware");
 const { generateBookSummaryByBookIdController, recommendBooksByBookIdController, chatWithBookstoreController } = require("./aiController");
 const { aiSummaryLimiter, aiRecommendationsLimiter, aiChatLimiter } = require("../../middlewares/aiRateLimiter");
 
@@ -13,7 +13,7 @@ router.post("/books/:id/summary", aiSummaryLimiter, generateBookSummaryByBookIdC
 
 router.post("/books/:id/recommendations", aiRecommendationsLimiter, recommendBooksByBookIdController);
 
-router.post("/chat", aiChatLimiter, chatWithBookstoreController);
+router.post("/chat", requireAuth, aiChatLimiter, chatWithBookstoreController);
 
 
 // // Authenticated routes

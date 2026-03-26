@@ -9,6 +9,7 @@ const createAiRateLimiter = ({ windowMs, max, message, prefix }) => {
         max,
         standardHeaders: true,
         legacyHeaders: false,
+        keyGenerator: (req) => req.currentUser?.id ? `user:${req.currentUser.id}` : `ip:${req.ip}`,
         message: {
             success: false,
             message
