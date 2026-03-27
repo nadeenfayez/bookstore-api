@@ -2,6 +2,8 @@ const { DBType } = require("../../configs/envConfigs");
 const gemini = require("../../configs/gemini");
 const { Type } = require("@google/genai");
 const AppError = require("../../utils/AppError");
+const { getChatMemory, addChatMessage } = require("../../utils/chatMemory");
+const { redisClient } = require("../../configs/redis");
 
 
 const booksRepo = DBType === "mongo"
@@ -266,7 +268,7 @@ const recommendBooksByBookId = async (bookId) => {
 };
 
 
-const chatWithBookstore = async (message) => {
+const chatWithBookstore = async (userId, message) => {
     const books = await booksRepo.getAllActive();
 
     if (books.length === 0) throw new AppError("No active books available in the store.", 404);
@@ -278,33 +280,52 @@ const chatWithBookstore = async (message) => {
         Description: ${book.description || "No description available"}
         `).join("\n---\n");
 
+    const previousMessages = getChatMemory(userId);
+
+    const conversationHistory = previousMessages.length ?
+        previousMessages.map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`).join("\n")
+        : "No previous conversation.";
 
     const prompt = `
     You are a bookstore recommendation assistant.
 
-    A user is asking for book recommendations from this bookstore.
-    Your job is to answer the user's request using ONLY the books in the catalog below.
+    You are NOT a general AI assistant.
+    You are restricted to the bookstore catalog only.
 
-    User message:
+    A user is chatting with you about books from this bookstore.
+
+    Previous conversation:
+    ${conversationHistory}
+
+    Current user message:
     ${message.trim()}
 
+    IMPORTANT RULE (STRICT):
+    - You MUST ONLY recommend books from the catalog below
+    - DO NOT mention any book that is not in the catalog
+    - DO NOT use your general knowledge
+    - If no relevant books exist, say that clearly
+
     Your task:
-    - Understand what the user wants
-    - Recommend only books from the catalog below
-    - Choose only books that are genuinely relevant
-    - Do not mention unrelated books
-    - Do not give a general store introduction
-    - Answer the user's request directly
-    - If the request is about a topic, choose only books that clearly match that topic
-    - Be helpful and concise
-    - If no books are a strong match, clearly say so
+    - Understand the current message in the context of the previous conversation
+    - Recommend only books from the catalog
+    - Choose ONLY the most relevant books
+    - Prefer quality over quantity
+    - Recommend at most 3 books
+    - Do NOT include weak or loosely related matches
+    - Answer the user directly and concisely
+    - Do not include unnecessary explanation
 
     Rules:
-    - Return only valid book IDs from the catalog
-    - Do not invent books
+    - Return only a JSON object
     - Do not include markdown
-    - matchedBookIds must contain only relevant books
-    - If no books match, return an empty matchedBookIds array
+    - matchedBookIds must contain ONLY valid IDs from the catalog
+    - Return at most 3 matchedBookIds
+    - If no books match, return:
+    {
+        "answer": "No relevant books found in our store.",
+        "matchedBookIds": []
+    }
 
     Catalog:
     ${compactCatalog}
@@ -337,7 +358,8 @@ const chatWithBookstore = async (message) => {
 
     const matchedBookIds = parsed.matchedBookIds
         .filter(Boolean)
-        .filter(id => availableBooksIds.includes(id));
+        .filter(id => availableBooksIds.includes(id))
+        .slice(0, 3);
 
     const matchedBooks = books.filter(book => matchedBookIds.includes(book.id))
         .map(book => ({
@@ -346,6 +368,10 @@ const chatWithBookstore = async (message) => {
             author: book.author,
             price: book.price
         }));
+
+    await addChatMessage(userId, { role: "user", content: message.trim() });
+
+    await addChatMessage(userId, { role: "assistant", content: parsed.answer.trim() });
 
     return {
         answer: parsed.answer.trim(),

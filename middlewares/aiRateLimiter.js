@@ -1,4 +1,4 @@
-const rateLimit = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const { RedisStore } = require("rate-limit-redis");
 const { redisClient } = require("../configs/redis");
 
@@ -9,7 +9,7 @@ const createAiRateLimiter = ({ windowMs, max, message, prefix }) => {
         max,
         standardHeaders: true,
         legacyHeaders: false,
-        keyGenerator: (req) => req.currentUser?.id ? `user:${req.currentUser.id}` : `ip:${req.ip}`,
+        keyGenerator: (req) => req.currentUser?.id ? `user:${req.currentUser.id}` : `ip:${ipKeyGenerator(req.ip)}`,
         message: {
             success: false,
             message
