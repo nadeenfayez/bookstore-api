@@ -26,6 +26,20 @@ const getActiveExcludingId = async (bookId) => {
     return targetBooks;
 };
 
+const searchActiveByText = async (keywords) => {
+    if (keywords.length === 0) return [];
+
+    const conditions = keywords.map(keyword => ({
+        $or: [
+            { title: { $regex: keyword, $options: "i" } },
+            { author: { $regex: keyword, $options: "i" } },
+            { description: { $regex: keyword, $options: "i" } }
+        ]
+    }));
+
+    return await Book.find({ isActive: true, $or: conditions });
+};
+
 const getByTitle = async (bookTitle) => {
     const targetBook = await Book.findOne({ title: bookTitle });
     return targetBook;
@@ -65,6 +79,7 @@ module.exports = {
     getAllActive,
     getActiveByIds,
     getActiveExcludingId,
+    searchActiveByText,
     getByTitle,
     create,
     update,

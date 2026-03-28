@@ -57,6 +57,19 @@ const chatResponseSchema = {
     required: ["answer", "matchedBookIds"]
 };
 
+const extractKeywords = (message) => {
+    const stopWords = new Set(["i", "me", "my", "you", "a", "an", "the", "and", "or", "but",
+        "about", "for", "with", "to", "of", "in", "on", "at", "is",
+        "are", "was", "were", "be", "want", "need", "give", "show",
+        "find", "book", "books", "something", "hi", "please", "more", "less", "much"]);
+
+    return message.toLowerCase()
+        .split(/\W+/)
+        .map(word => word.trim())
+        .filter(word => word.length > 2)
+        .filter(word => !stopWords.has(word));
+};
+
 
 const generateBookSummary = async (bookId) => {
     const book = await booksRepo.getById(bookId);
@@ -269,9 +282,19 @@ const recommendBooksByBookId = async (bookId) => {
 
 
 const chatWithBookstore = async (userId, message) => {
-    const books = await booksRepo.getAllActive();
+    const keywords = extractKeywords(message);
+    console.log("keywords", keywords);
+
+    let books = await booksRepo.searchActiveByText(keywords);
+    console.log("pre-filter", books);
+    // Fallback if keyword search returns nothing
+    if (books.length === 0) {
+        books = await booksRepo.getAllActive();
+    }
 
     if (books.length === 0) throw new AppError("No active books available in the store.", 404);
+
+    books = books.slice(0, 10); // Limit the candidate set
 
     const compactCatalog = books.map(book => `
         ID: ${book.id}
@@ -280,7 +303,7 @@ const chatWithBookstore = async (userId, message) => {
         Description: ${book.description || "No description available"}
         `).join("\n---\n");
 
-    const previousMessages = getChatMemory(userId);
+    const previousMessages = await getChatMemory(userId);
 
     const conversationHistory = previousMessages.length ?
         previousMessages.map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`).join("\n")
