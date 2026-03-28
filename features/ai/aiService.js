@@ -58,16 +58,54 @@ const chatResponseSchema = {
 };
 
 const extractKeywords = (message) => {
-    const stopWords = new Set(["i", "me", "my", "you", "a", "an", "the", "and", "or", "but",
+    const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but",
         "about", "for", "with", "to", "of", "in", "on", "at", "is",
         "are", "was", "were", "be", "want", "need", "give", "show",
-        "find", "book", "books", "something", "hi", "please", "more", "less", "much"]);
+        "find", "book", "books", "something", "anything", "hi", "please", "more", "less", "much"]);
 
     return message.toLowerCase()
         .split(/\W+/)
         .map(word => word.trim())
         .filter(word => word.length > 2)
         .filter(word => !stopWords.has(word));
+};
+
+const scoreBookAgainstKeywords = (book, keywords) => {
+    let score = 0;
+
+    const title = (book.title || "").toLowerCase();
+    const author = (book.author || "").toLowerCase();
+    const description = (book.description || "").toLowerCase();
+
+    for (const keyword of keywords) {
+        if (title.includes(keyword)) score += 3;
+        if (description.includes(keyword)) score += 2;
+        if (author.includes(keyword)) score += 1;
+    }
+
+    return score;
+};
+
+const retrieveCandidateBooks = async (message) => {
+    const keywords = extractKeywords(message);
+
+    const allActiveBooks = await booksRepo.getAllActive();
+
+    if (allActiveBooks.length === 0) return [];
+
+    if (keywords.length === 0) return allActiveBooks.slice(0, 10);
+
+    const scoredBooks = allActiveBooks.map(book => ({
+        book,
+        score: scoreBookAgainstKeywords(book, keywords)
+    }))
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map(item => item.book);
+
+    if (scoredBooks.length === 0) return allActiveBooks.slice(0, 10);   // Limit the candidate set
+
+    return scoredBooks.slice(0, 10);    // Limit the candidate set
 };
 
 
@@ -282,19 +320,9 @@ const recommendBooksByBookId = async (bookId) => {
 
 
 const chatWithBookstore = async (userId, message) => {
-    const keywords = extractKeywords(message);
-    console.log("keywords", keywords);
-
-    let books = await booksRepo.searchActiveByText(keywords);
-    console.log("pre-filter", books);
-    // Fallback if keyword search returns nothing
-    if (books.length === 0) {
-        books = await booksRepo.getAllActive();
-    }
+    const books = await retrieveCandidateBooks(message);
 
     if (books.length === 0) throw new AppError("No active books available in the store.", 404);
-
-    books = books.slice(0, 10); // Limit the candidate set
 
     const compactCatalog = books.map(book => `
         ID: ${book.id}
