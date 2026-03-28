@@ -72,18 +72,40 @@ const extractKeywords = (message) => {
 
 const scoreBookAgainstKeywords = (book, keywords) => {
     let score = 0;
+    let matchedKeywordsCount = 0;
 
     const title = (book.title || "").toLowerCase();
     const author = (book.author || "").toLowerCase();
     const description = (book.description || "").toLowerCase();
 
     for (const keyword of keywords) {
-        if (title.includes(keyword)) score += 3;
-        if (description.includes(keyword)) score += 2;
-        if (author.includes(keyword)) score += 1;
+        let keywordMatched = false;
+
+        if (title.includes(keyword)) {
+            score += 3;
+            keywordMatched = true;
+        }
+        if (description.includes(keyword)) {
+            score += 2;
+            keywordMatched = true;
+        }
+        if (author.includes(keyword)) {
+            score += 1;
+            keywordMatched = true;
+        }
+
+        if (keywordMatched) matchedKeywordsCount += 1;
     }
 
-    return score;
+    // Bonus for matching multiple different keywords
+    if (matchedKeywordsCount >= 2) score += 2;
+
+    if (matchedKeywordsCount >= 3) score += 2;
+
+    return {
+        score,
+        matchedKeywordsCount
+    };
 };
 
 const retrieveCandidateBooks = async (message) => {
@@ -95,12 +117,28 @@ const retrieveCandidateBooks = async (message) => {
 
     if (keywords.length === 0) return allActiveBooks.slice(0, 10);
 
-    const scoredBooks = allActiveBooks.map(book => ({
-        book,
-        score: scoreBookAgainstKeywords(book, keywords)
-    }))
+    const scoredBooks = allActiveBooks.map(book => {
+        const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, keywords);
+
+        console.log({
+            title: book.title,
+            score,
+            matchedKeywordsCount
+        });
+
+        return {
+            book,
+            score,
+            matchedKeywordsCount
+        };
+    })
         .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => {
+            if (a.score !== b.score) return b.score - a.score;
+
+            // Tie-breaker: more matched keywords wins
+            return b.matchedKeywordsCount - a.matchedKeywordsCount;
+        })
         .map(item => item.book);
 
     if (scoredBooks.length === 0) return allActiveBooks.slice(0, 10);   // Limit the candidate set
