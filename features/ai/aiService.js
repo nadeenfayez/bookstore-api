@@ -56,6 +56,28 @@ const chatResponseSchema = {
     required: ["answer", "matchedBookIds"]
 };
 
+const stemWord = (word) => {
+    let stem = word.toLowerCase().trim();
+
+    if (stem.endsWith("ing") && stem.length > 5) stem = stem.slice(0, -3);
+    if (stem.endsWith("ers") && stem.length > 5) stem = stem.slice(0, -3);
+    if (stem.endsWith("er") && stem.length > 4) stem = stem.slice(0, -2);
+    if (stem.endsWith("ed") && stem.length > 4) stem = stem.slice(0, -2);
+    if (stem.endsWith("es") && stem.length > 4) stem = stem.slice(0, -2);
+    if (stem.endsWith("s") && stem.length > 3) stem = stem.slice(0, -1);
+
+    return stem;
+};
+
+const normalizeAndTokenize = (text) => {
+    return (text || "")
+        .toLowerCase()
+        .split(/\W+/)
+        .map(word => word.trim())
+        .filter(Boolean)
+        .map(stemWord);
+};
+
 const extractKeywords = (message) => {
     const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but", "although",
         "another", "other", "otherwise", "else", "about", "for", "with", "to", "of", "in", "on", "at", "is",
@@ -66,29 +88,31 @@ const extractKeywords = (message) => {
         .split(/\W+/)
         .map(word => word.trim())
         .filter(word => word.length > 2)
-        .filter(word => !stopWords.has(word));
+        .filter(word => !stopWords.has(word))
+        .map(stemWord);
 };
 
 const scoreBookAgainstKeywords = (book, keywords) => {
     let score = 0;
     let matchedKeywordsCount = 0;
 
-    const title = (book.title || "").toLowerCase();
-    const author = (book.author || "").toLowerCase();
-    const description = (book.description || "").toLowerCase();
+    const titleTokens = normalizeAndTokenize(book.title);
+    const authorTokens = normalizeAndTokenize(book.author);
+    const descriptionTokens = normalizeAndTokenize(book.description);
+
 
     for (const keyword of keywords) {
         let keywordMatched = false;
 
-        if (title.includes(keyword)) {
+        if (titleTokens.includes(keyword)) {
             score += 3;
             keywordMatched = true;
         }
-        if (description.includes(keyword)) {
+        if (descriptionTokens.includes(keyword)) {
             score += 2;
             keywordMatched = true;
         }
-        if (author.includes(keyword)) {
+        if (authorTokens.includes(keyword)) {
             score += 1;
             keywordMatched = true;
         }
