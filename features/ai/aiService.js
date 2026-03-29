@@ -3,7 +3,6 @@ const gemini = require("../../configs/gemini");
 const { Type } = require("@google/genai");
 const AppError = require("../../utils/AppError");
 const { getChatMemory, addChatMessage } = require("../../utils/chatMemory");
-const { redisClient } = require("../../configs/redis");
 
 
 const booksRepo = DBType === "mongo"
@@ -58,9 +57,9 @@ const chatResponseSchema = {
 };
 
 const extractKeywords = (message) => {
-    const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but",
-        "about", "for", "with", "to", "of", "in", "on", "at", "is",
-        "are", "was", "were", "be", "want", "need", "give", "show",
+    const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but", "although",
+        "another", "other", "otherwise", "else", "about", "for", "with", "to", "of", "in", "on", "at", "is",
+        "are", "was", "were", "be", "want", "wanna", "need", "give", "show",
         "find", "book", "books", "something", "anything", "hi", "please", "more", "less", "much"]);
 
     return message.toLowerCase()
@@ -113,9 +112,9 @@ const retrieveCandidateBooks = async (message) => {
 
     const allActiveBooks = await booksRepo.getAllActive();
 
-    if (allActiveBooks.length === 0) return [];
+    if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
 
-    if (keywords.length === 0) return allActiveBooks.slice(0, 10);
+    if (keywords.length === 0) return { items: allActiveBooks, usedFallback: true };
 
     const scoredBooks = allActiveBooks.map(book => {
         const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, keywords);
@@ -134,16 +133,20 @@ const retrieveCandidateBooks = async (message) => {
     })
         .filter(item => item.score > 0)
         .sort((a, b) => {
-            if (a.score !== b.score) return b.score - a.score;
+            if (b.score !== a.score) return b.score - a.score;
 
             // Tie-breaker: more matched keywords wins
             return b.matchedKeywordsCount - a.matchedKeywordsCount;
-        })
-        .map(item => item.book);
+        });
 
-    if (scoredBooks.length === 0) return allActiveBooks.slice(0, 10);   // Limit the candidate set
+    if (scoredBooks.length === 0) {
+        return {
+            items: allActiveBooks,
+            usedFallback: true
+        };
+    }
 
-    return scoredBooks.slice(0, 10);    // Limit the candidate set
+    return { items: scoredBooks.slice(0, 10), usedFallback: false };    // Limit the candidate set
 };
 
 
@@ -358,16 +361,31 @@ const recommendBooksByBookId = async (bookId) => {
 
 
 const chatWithBookstore = async (userId, message) => {
-    const books = await retrieveCandidateBooks(message);
+    const retrievalResult = await retrieveCandidateBooks(message);
+    const retrievedBooks = retrievalResult.items;
+    const usedFallback = retrievalResult.usedFallback;
+
+    const books = usedFallback ? retrievedBooks : retrievedBooks.map(item => item.book);
 
     if (books.length === 0) throw new AppError("No active books available in the store.", 404);
 
-    const compactCatalog = books.map(book => `
+    const compactCatalog = usedFallback ?
+        books.map(book => `
         ID: ${book.id}
         Title: ${book.title}
         Author: ${book.author || "Unknown"}
         Description: ${book.description || "No description available"}
+        `).join("\n---\n") :
+        retrievedBooks.map((item, index) => `
+        Rank: ${index + 1}
+        RetrievalScore: ${item.score}
+        MatchedKeywords: ${item.matchedKeywordsCount}
+        ID: ${item.book.id}
+        Title: ${item.book.title}
+        Author: ${item.book.author || "Unknown"}
+        Description: ${item.book.description || "No description available"}
         `).join("\n---\n");
+
 
     const previousMessages = await getChatMemory(userId);
 
@@ -415,6 +433,8 @@ const chatWithBookstore = async (userId, message) => {
         "answer": "No relevant books found in our store.",
         "matchedBookIds": []
     }
+    - Prefer higher-ranked books when they are relevant
+    - Use lower-ranked books only if they are clearly a better semantic match
 
     Catalog:
     ${compactCatalog}
