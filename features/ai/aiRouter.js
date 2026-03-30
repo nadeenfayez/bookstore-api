@@ -16,9 +16,9 @@ router.post("/books/:id/recommendations", aiRecommendationsLimiter, recommendBoo
 
 router.post("/chat", requireAuth, aiChatLimiter, chatWithBookstoreController);
 
-router.post("/books/:id/embedding", requireAuth, requireRole("admin"), generateBookEmbeddingController);
+router.post("/books/embeddings/rebuild", requireAuth, requireRole("admin"), generateEmbeddingsForAllBooksController);   // Maintenance endpoints
 
-router.post("/books/embeddings/rebuild", requireAuth, requireRole("admin"), generateEmbeddingsForAllBooksController);
+router.post("/books/:id/embedding", requireAuth, requireRole("admin"), generateBookEmbeddingController);    // Maintenance endpoints
 
 // // Authenticated routes
 // router.delete("/sessions/current", requireAuth, logoutController);  // Self-service endpoint

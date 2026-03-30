@@ -69,7 +69,10 @@ const updateBook = async (bookId, updates) => {
         (isActive !== undefined && isActive !== existingBook.isActive);
 
 
-    if (summaryRelevantChanged) updateData.aiSummary = null;    // Invalidate summary cache
+    if (summaryRelevantChanged) {
+        updateData.aiSummary = null;    // Invalidate summary cache
+        updateData.aiEmbedding = null;  // Invalidate ai embedding
+    };
 
     if (recommendationsRelevantChanged) await aiCacheRepo.deleteAll();   // Invalidate recommendations cache
 

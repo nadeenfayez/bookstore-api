@@ -205,7 +205,7 @@ const generateBookEmbedding = async (bookId) => {
     return {
         id: book.id,
         title: book.title,
-        aiEmbedding: book.aiEmbedding,
+        aiEmbedding: embedding,
         embedded: true
     };
 };
@@ -222,7 +222,7 @@ const generateEmbeddingsForAllBooks = async () => {
         await booksRepo.update(book.id, { aiEmbedding: embedding });
     }
 
-    return { succes: true };
+    return { success: true };
 };
 
 const cosineSimilarity = (a, b) => {
@@ -243,7 +243,7 @@ const cosineSimilarity = (a, b) => {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));  // This normalizes the result so it’s always between -1 → 1
 };
 
-const retrieveCandidateBooksByEmbeddings = async (message) => {
+const retrieveCandidateBooksByEmbedding = async (message) => {
     const allActiveBooks = await booksRepo.getAllActive();
 
     if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
@@ -476,7 +476,7 @@ const recommendBooksByBookId = async (bookId) => {
 
 const chatWithBookstore = async (userId, message) => {
     // const retrievalResult = await retrieveCandidateBooks(message);
-    const retrievalResult = await retrieveCandidateBooksByEmbeddings(message);
+    const retrievalResult = await retrieveCandidateBooksByEmbedding(message);
     const retrievedBooks = retrievalResult.items;
     const usedFallback = retrievalResult.usedFallback;
 
