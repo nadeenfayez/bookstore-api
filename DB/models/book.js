@@ -32,6 +32,10 @@ const bookSchema = new mongoose.Schema({
     aiSummary: {
         type: String,
         trim: true
+    },
+    aiEmbedding: {
+        type: [Number],
+        default: null
     }
 },
     {

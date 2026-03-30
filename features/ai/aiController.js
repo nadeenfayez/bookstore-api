@@ -45,8 +45,33 @@ const chatWithBookstoreController = handleAsyncError(async (req, res) => {
 });
 
 
+const generateBookEmbeddingController = handleAsyncError(async (req, res) => {
+    const { id } = req.params;
+
+    const result = await aiService.generateBookEmbedding(id);
+
+    res.status(200).json({
+        success: true,
+        book: {
+            id: result.id,
+            title: result.title,
+            aiEmbedding: result.aiEmbedding
+        },
+        embedded: result.embedded
+    });
+});
+
+
+const generateEmbeddingsForAllBooksController = handleAsyncError(async (req, res) => {
+    const result = await aiService.generateEmbeddingsForAllBooks();
+
+    res.status(200).json(result);
+});
+
 module.exports = {
     generateBookSummaryByBookIdController,
     recommendBooksByBookIdController,
-    chatWithBookstoreController
+    chatWithBookstoreController,
+    generateBookEmbeddingController,
+    generateEmbeddingsForAllBooksController
 };

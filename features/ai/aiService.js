@@ -56,121 +56,211 @@ const chatResponseSchema = {
     required: ["answer", "matchedBookIds"]
 };
 
-const stemWord = (word) => {
-    let stem = word.toLowerCase().trim();
+// const stemWord = (word) => {
+//     let stem = word.toLowerCase().trim();
 
-    if (stem.endsWith("ing") && stem.length > 5) stem = stem.slice(0, -3);
-    if (stem.endsWith("ers") && stem.length > 5) stem = stem.slice(0, -3);
-    if (stem.endsWith("er") && stem.length > 4) stem = stem.slice(0, -2);
-    if (stem.endsWith("ed") && stem.length > 4) stem = stem.slice(0, -2);
-    if (stem.endsWith("es") && stem.length > 4) stem = stem.slice(0, -2);
-    if (stem.endsWith("s") && stem.length > 3) stem = stem.slice(0, -1);
+//     if (stem.endsWith("ing") && stem.length > 5) stem = stem.slice(0, -3);
+//     if (stem.endsWith("ers") && stem.length > 5) stem = stem.slice(0, -3);
+//     if (stem.endsWith("er") && stem.length > 4) stem = stem.slice(0, -2);
+//     if (stem.endsWith("ed") && stem.length > 4) stem = stem.slice(0, -2);
+//     if (stem.endsWith("es") && stem.length > 4) stem = stem.slice(0, -2);
+//     if (stem.endsWith("s") && stem.length > 3) stem = stem.slice(0, -1);
 
-    return stem;
+//     return stem;
+// };
+
+// const normalizeAndTokenize = (text) => {
+//     return (text || "")
+//         .toLowerCase()
+//         .split(/\W+/)
+//         .map(word => word.trim())
+//         .filter(Boolean)
+//         .map(stemWord);
+// };
+
+// const extractKeywords = (message) => {
+//     const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but", "although",
+//         "another", "other", "otherwise", "else", "about", "for", "with", "to", "of", "in", "on", "at", "is",
+//         "are", "was", "were", "be", "want", "wanna", "need", "give", "show",
+//         "find", "book", "books", "something", "anything", "hi", "please", "more", "less", "much"]);
+
+//     return message.toLowerCase()
+//         .split(/\W+/)
+//         .map(word => word.trim())
+//         .filter(word => word.length > 2)
+//         .filter(word => !stopWords.has(word))
+//         .map(stemWord);
+// };
+
+// const scoreBookAgainstKeywords = (book, keywords) => {
+//     let score = 0;
+//     let matchedKeywordsCount = 0;
+
+//     const titleTokens = normalizeAndTokenize(book.title);
+//     const authorTokens = normalizeAndTokenize(book.author);
+//     const descriptionTokens = normalizeAndTokenize(book.description);
+
+
+//     for (const keyword of keywords) {
+//         let keywordMatched = false;
+
+//         if (titleTokens.includes(keyword)) {
+//             score += 3;
+//             keywordMatched = true;
+//         }
+//         if (descriptionTokens.includes(keyword)) {
+//             score += 2;
+//             keywordMatched = true;
+//         }
+//         if (authorTokens.includes(keyword)) {
+//             score += 1;
+//             keywordMatched = true;
+//         }
+
+//         if (keywordMatched) matchedKeywordsCount += 1;
+//     }
+
+//     // Bonus for matching multiple different keywords
+//     if (matchedKeywordsCount >= 2) score += 2;
+
+//     if (matchedKeywordsCount >= 3) score += 2;
+
+//     return {
+//         score,
+//         matchedKeywordsCount
+//     };
+// };
+
+// const retrieveCandidateBooks = async (message) => {
+//     const keywords = extractKeywords(message);
+
+//     const allActiveBooks = await booksRepo.getAllActive();
+
+//     if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
+
+//     if (keywords.length === 0) return { items: allActiveBooks, usedFallback: true };
+
+//     const scoredBooks = allActiveBooks.map(book => {
+//         const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, keywords);
+
+//         console.log({
+//             title: book.title,
+//             score,
+//             matchedKeywordsCount
+//         });
+
+//         return {
+//             book,
+//             score,
+//             matchedKeywordsCount
+//         };
+//     })
+//         .filter(item => item.score > 0)
+//         .sort((a, b) => {
+//             if (b.score !== a.score) return b.score - a.score;
+
+//             // Tie-breaker: more matched keywords wins
+//             return b.matchedKeywordsCount - a.matchedKeywordsCount;
+//         });
+
+//     if (scoredBooks.length === 0) {
+//         return {
+//             items: allActiveBooks,
+//             usedFallback: true
+//         };
+//     }
+
+//     return { items: scoredBooks.slice(0, 10), usedFallback: false };    // Limit the candidate set
+// };
+
+const buildBookEmbeddingText = (book) => {
+    return `
+        Title: ${book.title}
+        Author: ${book.author || "Unknown"}
+        Description: ${book.description || "No description available"}
+    `;
 };
 
-const normalizeAndTokenize = (text) => {
-    return (text || "")
-        .toLowerCase()
-        .split(/\W+/)
-        .map(word => word.trim())
-        .filter(Boolean)
-        .map(stemWord);
+const createEmbedding = async (text) => {
+    const response = await gemini.models.embedContent({
+        model: 'gemini-embedding-001',
+        contents: text
+    });
+
+    return response.embeddings[0].values;
 };
 
-const extractKeywords = (message) => {
-    const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but", "although",
-        "another", "other", "otherwise", "else", "about", "for", "with", "to", "of", "in", "on", "at", "is",
-        "are", "was", "were", "be", "want", "wanna", "need", "give", "show",
-        "find", "book", "books", "something", "anything", "hi", "please", "more", "less", "much"]);
+const generateBookEmbedding = async (bookId) => {
+    const book = await booksRepo.getById(bookId);
 
-    return message.toLowerCase()
-        .split(/\W+/)
-        .map(word => word.trim())
-        .filter(word => word.length > 2)
-        .filter(word => !stopWords.has(word))
-        .map(stemWord);
-};
+    if (!book) throw new AppError("Book is not found.", 404);
+    if (!book.isActive) throw new AppError("Book is not available.", 404);
+    if (!book.description) throw new AppError("This book does not have enough content for embedding.", 400);
 
-const scoreBookAgainstKeywords = (book, keywords) => {
-    let score = 0;
-    let matchedKeywordsCount = 0;
+    const embeddingText = buildBookEmbeddingText(book);
+    const embedding = await createEmbedding(embeddingText);
 
-    const titleTokens = normalizeAndTokenize(book.title);
-    const authorTokens = normalizeAndTokenize(book.author);
-    const descriptionTokens = normalizeAndTokenize(book.description);
-
-
-    for (const keyword of keywords) {
-        let keywordMatched = false;
-
-        if (titleTokens.includes(keyword)) {
-            score += 3;
-            keywordMatched = true;
-        }
-        if (descriptionTokens.includes(keyword)) {
-            score += 2;
-            keywordMatched = true;
-        }
-        if (authorTokens.includes(keyword)) {
-            score += 1;
-            keywordMatched = true;
-        }
-
-        if (keywordMatched) matchedKeywordsCount += 1;
-    }
-
-    // Bonus for matching multiple different keywords
-    if (matchedKeywordsCount >= 2) score += 2;
-
-    if (matchedKeywordsCount >= 3) score += 2;
+    await booksRepo.update(bookId, { aiEmbedding: embedding });
 
     return {
-        score,
-        matchedKeywordsCount
+        id: book.id,
+        title: book.title,
+        aiEmbedding: book.aiEmbedding,
+        embedded: true
     };
 };
 
-const retrieveCandidateBooks = async (message) => {
-    const keywords = extractKeywords(message);
+const generateEmbeddingsForAllBooks = async () => {
+    const books = await booksRepo.getAllActive();
 
+    for (const book of books) {
+        if (!book.description) continue;
+
+        const embeddingText = buildBookEmbeddingText(book);
+        const embedding = await createEmbedding(embeddingText);
+
+        await booksRepo.update(book.id, { aiEmbedding: embedding });
+    }
+
+    return { succes: true };
+};
+
+const cosineSimilarity = (a, b) => {
+    if (!a || !b || a.length !== b.length) return 0;
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+        dotProduct += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+    }
+
+    if (normA === 0 || normB === 0) return 0;
+
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));  // This normalizes the result so it’s always between -1 → 1
+};
+
+const retrieveCandidateBooksByEmbeddings = async (message) => {
     const allActiveBooks = await booksRepo.getAllActive();
 
     if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
 
-    if (keywords.length === 0) return { items: allActiveBooks, usedFallback: true };
+    const booksWithEmbeddings = allActiveBooks.filter(book => Array.isArray(book.aiEmbedding) && book.aiEmbedding.length > 0);
 
-    const scoredBooks = allActiveBooks.map(book => {
-        const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, keywords);
+    if (booksWithEmbeddings.length === 0) return { items: allActiveBooks, usedFallback: true };
 
-        console.log({
-            title: book.title,
-            score,
-            matchedKeywordsCount
-        });
+    const queryEmbedding = await createEmbedding(message.trim());
 
-        return {
-            book,
-            score,
-            matchedKeywordsCount
-        };
-    })
-        .filter(item => item.score > 0)
-        .sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
+    const scoredBooks = booksWithEmbeddings.map(book => ({
+        book,
+        similarity: cosineSimilarity(queryEmbedding, book.aiEmbedding)
+    }))
+        .sort((a, b) => b.similarity - a.similarity);
 
-            // Tie-breaker: more matched keywords wins
-            return b.matchedKeywordsCount - a.matchedKeywordsCount;
-        });
-
-    if (scoredBooks.length === 0) {
-        return {
-            items: allActiveBooks,
-            usedFallback: true
-        };
-    }
-
-    return { items: scoredBooks.slice(0, 10), usedFallback: false };    // Limit the candidate set
+    return { items: scoredBooks.slice(0, 10), usedFallback: false };
 };
 
 
@@ -385,13 +475,31 @@ const recommendBooksByBookId = async (bookId) => {
 
 
 const chatWithBookstore = async (userId, message) => {
-    const retrievalResult = await retrieveCandidateBooks(message);
+    // const retrievalResult = await retrieveCandidateBooks(message);
+    const retrievalResult = await retrieveCandidateBooksByEmbeddings(message);
     const retrievedBooks = retrievalResult.items;
     const usedFallback = retrievalResult.usedFallback;
 
     const books = usedFallback ? retrievedBooks : retrievedBooks.map(item => item.book);
 
     if (books.length === 0) throw new AppError("No active books available in the store.", 404);
+
+    // const compactCatalog = usedFallback ?
+    //     books.map(book => `
+    //     ID: ${book.id}
+    //     Title: ${book.title}
+    //     Author: ${book.author || "Unknown"}
+    //     Description: ${book.description || "No description available"}
+    //     `).join("\n---\n") :
+    //     retrievedBooks.map((item, index) => `
+    //     Rank: ${index + 1}
+    //     RetrievalScore: ${item.score}
+    //     MatchedKeywords: ${item.matchedKeywordsCount}
+    //     ID: ${item.book.id}
+    //     Title: ${item.book.title}
+    //     Author: ${item.book.author || "Unknown"}
+    //     Description: ${item.book.description || "No description available"}
+    //     `).join("\n---\n");
 
     const compactCatalog = usedFallback ?
         books.map(book => `
@@ -402,8 +510,7 @@ const chatWithBookstore = async (userId, message) => {
         `).join("\n---\n") :
         retrievedBooks.map((item, index) => `
         Rank: ${index + 1}
-        RetrievalScore: ${item.score}
-        MatchedKeywords: ${item.matchedKeywordsCount}
+        SimilarityScore: ${item.similarity}
         ID: ${item.book.id}
         Title: ${item.book.title}
         Author: ${item.book.author || "Unknown"}
@@ -516,5 +623,7 @@ const chatWithBookstore = async (userId, message) => {
 module.exports = {
     generateBookSummary,
     recommendBooksByBookId,
-    chatWithBookstore
+    chatWithBookstore,
+    generateBookEmbedding,
+    generateEmbeddingsForAllBooks
 };
