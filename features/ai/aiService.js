@@ -140,7 +140,7 @@ const getKeywordRetrievalScores = async (message) => {
 
     if (keywords.length === 0) {
         return {
-            items: allActiveBooks.map(item => ({
+            items: allActiveBooks.map(book => ({
                 book,
                 keywordScore: 0,
                 matchedKeywordsCount: 0
