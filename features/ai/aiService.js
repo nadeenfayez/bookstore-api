@@ -56,122 +56,113 @@ const chatResponseSchema = {
     required: ["answer", "matchedBookIds"]
 };
 
-// const stemWord = (word) => {
-//     let stem = word.toLowerCase().trim();
+const stemWord = (word) => {
+    let stem = word.toLowerCase().trim();
 
-//     if (stem.endsWith("ing") && stem.length > 5) stem = stem.slice(0, -3);
-//     if (stem.endsWith("ers") && stem.length > 5) stem = stem.slice(0, -3);
-//     if (stem.endsWith("er") && stem.length > 4) stem = stem.slice(0, -2);
-//     if (stem.endsWith("ed") && stem.length > 4) stem = stem.slice(0, -2);
-//     if (stem.endsWith("es") && stem.length > 4) stem = stem.slice(0, -2);
-//     if (stem.endsWith("s") && stem.length > 3) stem = stem.slice(0, -1);
+    if (stem.endsWith("ing") && stem.length > 5) stem = stem.slice(0, -3);
+    if (stem.endsWith("ers") && stem.length > 5) stem = stem.slice(0, -3);
+    if (stem.endsWith("er") && stem.length > 4) stem = stem.slice(0, -2);
+    if (stem.endsWith("ed") && stem.length > 4) stem = stem.slice(0, -2);
+    if (stem.endsWith("es") && stem.length > 4) stem = stem.slice(0, -2);
+    if (stem.endsWith("s") && stem.length > 3) stem = stem.slice(0, -1);
 
-//     return stem;
-// };
+    return stem;
+};
 
-// const normalizeAndTokenize = (text) => {
-//     return (text || "")
-//         .toLowerCase()
-//         .split(/\W+/)
-//         .map(word => word.trim())
-//         .filter(Boolean)
-//         .map(stemWord);
-// };
+const normalizeAndTokenize = (text) => {
+    return (text || "")
+        .toLowerCase()
+        .split(/\W+/)
+        .map(word => word.trim())
+        .filter(Boolean)
+        .map(stemWord);
+};
 
-// const extractKeywords = (message) => {
-//     const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but", "although",
-//         "another", "other", "otherwise", "else", "about", "for", "with", "to", "of", "in", "on", "at", "is",
-//         "are", "was", "were", "be", "want", "wanna", "need", "give", "show",
-//         "find", "book", "books", "something", "anything", "hi", "please", "more", "less", "much"]);
+const extractKeywords = (message) => {
+    const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but", "although",
+        "another", "other", "otherwise", "else", "about", "for", "with", "to", "of", "in", "on", "at", "is",
+        "are", "was", "were", "be", "want", "wanna", "need", "give", "show",
+        "find", "book", "books", "something", "anything", "hi", "please", "more", "less", "much"]);
 
-//     return message.toLowerCase()
-//         .split(/\W+/)
-//         .map(word => word.trim())
-//         .filter(word => word.length > 2)
-//         .filter(word => !stopWords.has(word))
-//         .map(stemWord);
-// };
+    return message.toLowerCase()
+        .split(/\W+/)
+        .map(word => word.trim())
+        .filter(word => word.length > 2)
+        .filter(word => !stopWords.has(word))
+        .map(stemWord);
+};
 
-// const scoreBookAgainstKeywords = (book, keywords) => {
-//     let score = 0;
-//     let matchedKeywordsCount = 0;
+const scoreBookAgainstKeywords = (book, keywords) => {
+    let score = 0;
+    let matchedKeywordsCount = 0;
 
-//     const titleTokens = normalizeAndTokenize(book.title);
-//     const authorTokens = normalizeAndTokenize(book.author);
-//     const descriptionTokens = normalizeAndTokenize(book.description);
+    const titleTokens = normalizeAndTokenize(book.title);
+    const authorTokens = normalizeAndTokenize(book.author);
+    const descriptionTokens = normalizeAndTokenize(book.description);
 
 
-//     for (const keyword of keywords) {
-//         let keywordMatched = false;
+    for (const keyword of keywords) {
+        let keywordMatched = false;
 
-//         if (titleTokens.includes(keyword)) {
-//             score += 3;
-//             keywordMatched = true;
-//         }
-//         if (descriptionTokens.includes(keyword)) {
-//             score += 2;
-//             keywordMatched = true;
-//         }
-//         if (authorTokens.includes(keyword)) {
-//             score += 1;
-//             keywordMatched = true;
-//         }
+        if (titleTokens.includes(keyword)) {
+            score += 3;
+            keywordMatched = true;
+        }
+        if (descriptionTokens.includes(keyword)) {
+            score += 2;
+            keywordMatched = true;
+        }
+        if (authorTokens.includes(keyword)) {
+            score += 1;
+            keywordMatched = true;
+        }
 
-//         if (keywordMatched) matchedKeywordsCount += 1;
-//     }
+        if (keywordMatched) matchedKeywordsCount += 1;
+    }
 
-//     // Bonus for matching multiple different keywords
-//     if (matchedKeywordsCount >= 2) score += 2;
+    // Bonus for matching multiple different keywords
+    if (matchedKeywordsCount >= 2) score += 2;
 
-//     if (matchedKeywordsCount >= 3) score += 2;
+    if (matchedKeywordsCount >= 3) score += 2;
 
-//     return {
-//         score,
-//         matchedKeywordsCount
-//     };
-// };
+    return {
+        score,
+        matchedKeywordsCount
+    };
+};
 
-// const retrieveCandidateBooks = async (message) => {
-//     const keywords = extractKeywords(message);
+const getKeywordRetrievalScores = async (message) => {
+    const keywords = extractKeywords(message);
 
-//     const allActiveBooks = await booksRepo.getAllActive();
+    const allActiveBooks = await booksRepo.getAllActive();
 
-//     if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
+    if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
 
-//     if (keywords.length === 0) return { items: allActiveBooks, usedFallback: true };
+    if (keywords.length === 0) {
+        return {
+            items: allActiveBooks.map(item => ({
+                book,
+                keywordScore: 0,
+                matchedKeywordsCount: 0
+            })),
+            usedFallback: true
+        };
+    }
 
-//     const scoredBooks = allActiveBooks.map(book => {
-//         const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, keywords);
+    const scoredBooks = allActiveBooks.map(book => {
+        const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, keywords);
 
-//         console.log({
-//             title: book.title,
-//             score,
-//             matchedKeywordsCount
-//         });
+        return {
+            book,
+            keywordScore: score,
+            matchedKeywordsCount
+        };
+    });
 
-//         return {
-//             book,
-//             score,
-//             matchedKeywordsCount
-//         };
-//     })
-//         .filter(item => item.score > 0)
-//         .sort((a, b) => {
-//             if (b.score !== a.score) return b.score - a.score;
+    const hasAnyKeywordMatch = scoredBooks.some(item => item.keywordScore > 0);
 
-//             // Tie-breaker: more matched keywords wins
-//             return b.matchedKeywordsCount - a.matchedKeywordsCount;
-//         });
-
-//     if (scoredBooks.length === 0) {
-//         return {
-//             items: allActiveBooks,
-//             usedFallback: true
-//         };
-//     }
-
-//     return { items: scoredBooks.slice(0, 10), usedFallback: false };    // Limit the candidate set
-// };
+    return { items: scoredBooks, usedFallback: !hasAnyKeywordMatch };
+};
 
 const buildBookEmbeddingText = (book) => {
     return `
@@ -243,24 +234,63 @@ const cosineSimilarity = (a, b) => {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));  // This normalizes the result so it’s always between -1 → 1
 };
 
-const retrieveCandidateBooksByEmbedding = async (message) => {
+const getEmbeddingRetrievalScores = async (message) => {
     const allActiveBooks = await booksRepo.getAllActive();
 
     if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
 
-    const booksWithEmbeddings = allActiveBooks.filter(book => Array.isArray(book.aiEmbedding) && book.aiEmbedding.length > 0);
-
-    if (booksWithEmbeddings.length === 0) return { items: allActiveBooks, usedFallback: true };
-
     const queryEmbedding = await createEmbedding(message.trim());
 
-    const scoredBooks = booksWithEmbeddings.map(book => ({
+    const scoredBooks = allActiveBooks.map(book => ({
         book,
-        similarity: cosineSimilarity(queryEmbedding, book.aiEmbedding)
-    }))
-        .sort((a, b) => b.similarity - a.similarity);
+        similarity: Array.isArray(book.aiEmbedding) && book.aiEmbedding.length > 0 ? cosineSimilarity(queryEmbedding, book.aiEmbedding) : 0
+    }));
 
-    return { items: scoredBooks.slice(0, 10), usedFallback: false };
+    const hasAnyEmbedding = scoredBooks.some(item => item.similarity > 0);
+
+    return { items: scoredBooks, usedFallback: !hasAnyEmbedding };
+};
+
+const retrieveCandidateBooksHybrid = async (message) => {
+    const keywordResult = await getKeywordRetrievalScores(message);
+    const embeddingResult = await getEmbeddingRetrievalScores(message);
+
+    if (keywordResult.items.length === 0 || embeddingResult.items.length === 0) return { items: [], usedFallback: false };
+
+    const embeddingMap = new Map(
+        embeddingResult.items.map(item => [item.book.id, item.similarity])
+    );
+
+    const hybridBooks = keywordResult.items.map(item => {
+        const similarity = embeddingMap.get(item.book.id) || 0;
+
+        const hybridScore = item.keywordScore + (similarity * 5);
+
+        console.log({
+            title: item.book.title,
+            keywordScore: item.keywordScore,
+            matchedKeywordsCount: item.matchedKeywordsCount,
+            similarity,
+            hybridScore
+        });
+
+        return {
+            book: item.book,
+            keywordScore: item.keywordScore,
+            matchedKeywordsCount: item.matchedKeywordsCount,
+            similarity,
+            hybridScore
+        }
+    })
+        .sort((a, b) => {
+            if (b.hybridScore !== a.hybridScore) return b.hybridScore - a.hybridScore;
+            if (b.keywordScore !== a.keywordScore) return b.keywordScore - a.keywordScore;
+            return b.similarity - a.similarity;
+        });
+
+    const usedFallback = keywordResult.usedFallback === true && embeddingResult.usedFallback === true;
+
+    return { items: usedFallback ? hybridBooks : hybridBooks.slice(0, 10), usedFallback };
 };
 
 
@@ -475,31 +505,13 @@ const recommendBooksByBookId = async (bookId) => {
 
 
 const chatWithBookstore = async (userId, message) => {
-    // const retrievalResult = await retrieveCandidateBooks(message);
-    const retrievalResult = await retrieveCandidateBooksByEmbedding(message);
+    const retrievalResult = await retrieveCandidateBooksHybrid(message);
     const retrievedBooks = retrievalResult.items;
     const usedFallback = retrievalResult.usedFallback;
 
-    const books = usedFallback ? retrievedBooks : retrievedBooks.map(item => item.book);
+    const books = retrievedBooks.map(item => item.book);
 
     if (books.length === 0) throw new AppError("No active books available in the store.", 404);
-
-    // const compactCatalog = usedFallback ?
-    //     books.map(book => `
-    //     ID: ${book.id}
-    //     Title: ${book.title}
-    //     Author: ${book.author || "Unknown"}
-    //     Description: ${book.description || "No description available"}
-    //     `).join("\n---\n") :
-    //     retrievedBooks.map((item, index) => `
-    //     Rank: ${index + 1}
-    //     RetrievalScore: ${item.score}
-    //     MatchedKeywords: ${item.matchedKeywordsCount}
-    //     ID: ${item.book.id}
-    //     Title: ${item.book.title}
-    //     Author: ${item.book.author || "Unknown"}
-    //     Description: ${item.book.description || "No description available"}
-    //     `).join("\n---\n");
 
     const compactCatalog = usedFallback ?
         books.map(book => `
@@ -510,7 +522,10 @@ const chatWithBookstore = async (userId, message) => {
         `).join("\n---\n") :
         retrievedBooks.map((item, index) => `
         Rank: ${index + 1}
+        HybridScore: ${item.hybridScore}
+        KeywordScore: ${item.keywordScore}
         SimilarityScore: ${item.similarity}
+        MatchedKeywordsCount: ${item.matchedKeywordsCount}
         ID: ${item.book.id}
         Title: ${item.book.title}
         Author: ${item.book.author || "Unknown"}
@@ -523,6 +538,7 @@ const chatWithBookstore = async (userId, message) => {
     const conversationHistory = previousMessages.length ?
         previousMessages.map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`).join("\n")
         : "No previous conversation.";
+
 
     const prompt = `
     You are a bookstore recommendation assistant.
@@ -564,7 +580,7 @@ const chatWithBookstore = async (userId, message) => {
         "answer": "No relevant books found in our store.",
         "matchedBookIds": []
     }
-    - Prefer higher-ranked books when they are relevant
+    - Prefer books with stronger retrieval signals when they are relevant
     - Use lower-ranked books only if they are clearly a better semantic match
 
     Catalog:
