@@ -3,6 +3,7 @@ const gemini = require("../../configs/gemini");
 const { Type } = require("@google/genai");
 const AppError = require("../../utils/AppError");
 const { getChatMemory, addChatMessage } = require("../../utils/chatMemory");
+const natural = require("natural");
 
 
 const booksRepo = DBType === "mongo"
@@ -56,41 +57,30 @@ const chatResponseSchema = {
     required: ["answer", "matchedBookIds"]
 };
 
-const stemWord = (word) => {
-    let stem = word.toLowerCase().trim();
 
-    if (stem.endsWith("ing") && stem.length > 5) stem = stem.slice(0, -3);
-    if (stem.endsWith("ers") && stem.length > 5) stem = stem.slice(0, -3);
-    if (stem.endsWith("er") && stem.length > 4) stem = stem.slice(0, -2);
-    if (stem.endsWith("ed") && stem.length > 4) stem = stem.slice(0, -2);
-    if (stem.endsWith("es") && stem.length > 4) stem = stem.slice(0, -2);
-    if (stem.endsWith("s") && stem.length > 3) stem = stem.slice(0, -1);
+const tokenizer = new natural.WordTokenizer();
+const stemmer = natural.PorterStemmer;
 
-    return stem;
-};
+const { removeStopwords } = require("stopword");
+
+const customStopWords = new Set(["want", "wanna", "need", "give", "show", "find", "book", "books", "hi", "please"]);
+
 
 const normalizeAndTokenize = (text) => {
-    return (text || "")
-        .toLowerCase()
-        .split(/\W+/)
-        .map(word => word.trim())
+    const tokens = tokenizer.tokenize((text || "").toLowerCase())
+        .map(token => token.trim())
         .filter(Boolean)
-        .map(stemWord);
+        .filter(token => token.length > 2);
+
+    const filteredTokens = removeStopwords(tokens).filter(token => !customStopWords.has(token));
+
+    return filteredTokens.map(token => stemmer.stem(token));
 };
 
 const extractKeywords = (message) => {
-    const stopWords = new Set(["i", "me", "my", "you", "they", "them", "these", "those", "a", "an", "the", "and", "or", "but", "although",
-        "another", "other", "otherwise", "else", "about", "for", "with", "to", "of", "in", "on", "at", "is",
-        "are", "was", "were", "be", "want", "wanna", "need", "give", "show",
-        "find", "book", "books", "something", "anything", "hi", "please", "more", "less", "much"]);
-
-    return message.toLowerCase()
-        .split(/\W+/)
-        .map(word => word.trim())
-        .filter(word => word.length > 2)
-        .filter(word => !stopWords.has(word))
-        .map(stemWord);
+    return normalizeAndTokenize(message);
 };
+
 
 const scoreBookAgainstKeywords = (book, keywords) => {
     let score = 0;
@@ -99,7 +89,6 @@ const scoreBookAgainstKeywords = (book, keywords) => {
     const titleTokens = normalizeAndTokenize(book.title);
     const authorTokens = normalizeAndTokenize(book.author);
     const descriptionTokens = normalizeAndTokenize(book.description);
-
 
     for (const keyword of keywords) {
         let keywordMatched = false;
@@ -163,6 +152,7 @@ const getKeywordRetrievalScores = async (message) => {
 
     return { items: scoredBooks, usedFallback: !hasAnyKeywordMatch };
 };
+
 
 const buildBookEmbeddingText = (book) => {
     return `
@@ -250,6 +240,7 @@ const getEmbeddingRetrievalScores = async (message) => {
 
     return { items: scoredBooks, usedFallback: !hasAnyEmbedding };
 };
+
 
 const retrieveCandidateBooksHybrid = async (message) => {
     const keywordResult = await getKeywordRetrievalScores(message);
