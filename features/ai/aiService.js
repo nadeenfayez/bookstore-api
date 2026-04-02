@@ -252,14 +252,22 @@ const retrieveCandidateBooksHybrid = async (message) => {
         embeddingResult.items.map(item => [item.book.id, item.similarity])
     );
 
+    const maxKeywordScore = Math.max(...keywordResult.items.map(item => item.keywordScore), 1);
+
     const hybridBooks = keywordResult.items.map(item => {
         const similarity = embeddingMap.get(item.book.id) || 0;
 
-        const hybridScore = item.keywordScore + (similarity * 5);
+        const normalizedKeywordScore = item.keywordScore / maxKeywordScore;
+
+        const keywordWeight = 0.6;
+        const semanticWeight = 0.4;
+
+        const hybridScore = (normalizedKeywordScore * keywordWeight) + (similarity * semanticWeight);
 
         console.log({
             title: item.book.title,
             keywordScore: item.keywordScore,
+            normalizedKeywordScore,
             matchedKeywordsCount: item.matchedKeywordsCount,
             similarity,
             hybridScore
@@ -279,9 +287,25 @@ const retrieveCandidateBooksHybrid = async (message) => {
             return b.similarity - a.similarity;
         });
 
-    const usedFallback = keywordResult.usedFallback === true && embeddingResult.usedFallback === true;
+    const MIN_BASE_HYBRID_SCORE = 0.25;
+    const dynamicRatio = 0.45;   // Keep books that are at least X% as good as the best one
 
-    return { items: usedFallback ? hybridBooks : hybridBooks.slice(0, 10), usedFallback };
+    const topScore = hybridBooks[0]?.hybridScore || 0;
+    const dynamicThreshold = Math.max(MIN_BASE_HYBRID_SCORE, topScore * dynamicRatio);
+
+    console.log({
+        topScore,
+        dynamicThreshold
+    });
+
+    const filteredHybridBooks = hybridBooks.filter(item => item.hybridScore >= dynamicThreshold);
+
+    const noStrongHybridMatches = filteredHybridBooks.length === 0;
+    const bothRetrieversFallback = keywordResult.usedFallback === true && embeddingResult.usedFallback === true;
+
+    const usedFallback = bothRetrieversFallback || noStrongHybridMatches;
+
+    return { items: usedFallback ? hybridBooks : filteredHybridBooks.slice(0, 10), usedFallback };
 };
 
 
