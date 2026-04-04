@@ -155,6 +155,7 @@ const interpretQueryForRetrieval = async (message) => {
     };
 };
 
+
 const scoreBookAgainstKeywords = (book, includeKeywords, excludeKeywords) => {
     let score = 0;
     let matchedKeywordsCount = 0;
@@ -338,12 +339,12 @@ const retrieveCandidateBooksHybrid = async (message) => {
         embeddingResult.items.map(item => [item.book.id, item.similarity])
     );
 
-    const maxKeywordScore = Math.max(...keywordResult.items.map(item => item.keywordScore), 1);
+    const maxKeywordScore = Math.max(...keywordResult.items.map(item => Math.max(item.keywordScore, 0)), 1);
 
     const hybridBooks = keywordResult.items.map(item => {
         const similarity = embeddingMap.get(item.book.id) || 0;
 
-        const normalizedKeywordScore = item.keywordScore / maxKeywordScore;
+        const normalizedKeywordScore = Math.max(item.keywordScore, 0) / maxKeywordScore;
 
         const keywordWeight = 0.6;
         const semanticWeight = 0.4;
