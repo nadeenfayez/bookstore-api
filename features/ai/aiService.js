@@ -1,9 +1,13 @@
 const { DBType } = require("../../configs/envConfigs");
 const gemini = require("../../configs/gemini");
-const { Type } = require("@google/genai");
 const AppError = require("../../utils/AppError");
 const { getChatMemory, addChatMessage } = require("../../utils/chatMemory");
-const natural = require("natural");
+const { interpretQueryForRetrieval } = require("./llm/queryInterpreter");
+const { createEmbedding, buildBookEmbeddingText } = require("../../utils/vector/embedding");
+const { bookSummarySchema, recommendationSchema, chatResponseSchema } = require("./ai.schemas");
+const { getEmbeddingRetrievalScores } = require("./retrieval/embeddingRetrieval");
+const { getKeywordRetrievalScores } = require("./retrieval/keywordRetrieval");
+const { retrieveCandidateBooksHybrid } = require("./retrieval/hybridRetrieval");
 
 
 const booksRepo = DBType === "mongo"
@@ -15,249 +19,6 @@ const aiCacheRepo = DBType === "mongo"
     : require("./aiCacheRepository.fs");
 
 
-const bookSummarySchema = {
-    type: Type.OBJECT,
-    properties: {
-        summary: {
-            type: Type.STRING
-        }
-    },
-    required: ["summary"]
-};
-
-const recommendationSchema = {
-    type: Type.ARRAY,
-    items: {
-        type: Type.OBJECT,
-        properties: {
-            id: {
-                type: Type.STRING
-            },
-            reason: {
-                type: Type.STRING
-            }
-        },
-        required: ["id", "reason"]
-    }
-};
-
-const chatResponseSchema = {
-    type: Type.OBJECT,
-    properties: {
-        answer: {
-            type: Type.STRING
-        },
-        matchedBookIds: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.STRING
-            }
-        }
-    },
-    required: ["answer", "matchedBookIds"]
-};
-
-const queryInterpretationSchema = {
-    type: Type.OBJECT,
-    properties: {
-        includeKeywords: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.STRING
-            }
-        },
-        excludeKeywords: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.STRING
-            }
-        },
-        searchMode: {
-            type: Type.STRING,
-            enum: ["focused", "broad"]
-        }
-    },
-    required: ["includeKeywords", "excludeKeywords", "searchMode"]
-};
-
-
-const tokenizer = new natural.WordTokenizer();
-const stemmer = natural.PorterStemmer;
-
-const { removeStopwords } = require("stopword");
-
-const customStopWords = new Set(["want", "wanna", "need", "give", "show", "find", "book", "books", "hi", "please"]);
-
-
-const normalizeAndTokenize = (text) => {
-    const tokens = tokenizer.tokenize((text || "").toLowerCase())
-        .map(token => token.trim())
-        .filter(Boolean)
-        .filter(token => token.length > 2);
-
-    const filteredTokens = removeStopwords(tokens).filter(token => !customStopWords.has(token));
-
-    return filteredTokens.map(token => stemmer.stem(token));
-};
-
-
-const interpretQueryForRetrieval = async (message) => {
-    const prompt = `
-    You are helping a bookstore retrieval system understand a user's search intent.
-
-    Your task:
-    - Extract the main topics the user wants into includeKeywords
-    - Extract the topics the user does NOT want into excludeKeywords
-    - Choose searchMode:
-    - "focused" if the request is specific
-    - "broad" if the request is vague or exploratory
-
-    Rules:
-    - Return only a JSON object
-    - Do not include markdown
-    - Keep keywords short and useful for search
-    - Do not include filler words
-    - If there are no exclusions, return an empty excludeKeywords array
-
-    User message:
-    ${message.trim()}
-    `;
-
-
-    const response = await gemini.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: queryInterpretationSchema
-        }
-    });
-
-    const rawText = response?.text?.trim();
-
-    let parsed;
-
-    try {
-        parsed = JSON.parse(rawText);
-    }
-    catch {
-        throw new AppError("AI returned an invalid query interpretation format.", 500);
-    }
-
-    if (!parsed?.includeKeywords || !Array.isArray(parsed?.includeKeywords) || !parsed?.excludeKeywords || !Array.isArray(parsed?.excludeKeywords) || !parsed?.searchMode || typeof parsed?.searchMode !== "string") {
-        throw new AppError("AI returned an invalid query interpretation structure.", 500);
-    }
-
-    return {
-        includeKeywords: parsed.includeKeywords.map(keyword => normalizeAndTokenize(keyword)).flat(),
-        excludeKeywords: parsed.excludeKeywords.map(keyword => normalizeAndTokenize(keyword)).flat(),
-        searchMode: parsed.searchMode
-    };
-};
-
-
-const scoreBookAgainstKeywords = (book, includeKeywords, excludeKeywords) => {
-    let score = 0;
-    let matchedKeywordsCount = 0;
-
-    const titleTokens = normalizeAndTokenize(book.title);
-    const authorTokens = normalizeAndTokenize(book.author);
-    const descriptionTokens = normalizeAndTokenize(book.description);
-
-    const scoreKeywordMatch = (keyword, isNegative = false) => {
-        let keywordMatched = false;
-
-        if (titleTokens.includes(keyword)) {
-            keywordMatched = true;
-            score += isNegative ? -3 : +3;
-        }
-
-        if (descriptionTokens.includes(keyword)) {
-            keywordMatched = true;
-            score += isNegative ? -2 : +2;
-        }
-
-        if (authorTokens.includes(keyword)) {
-            keywordMatched = true;
-            score += isNegative ? -1 : +1;
-        }
-
-        if (keywordMatched && !isNegative) matchedKeywordsCount += 1;
-    };
-
-    for (const keyword of includeKeywords) {
-        scoreKeywordMatch(keyword, false);
-    }
-
-    for (const keyword of excludeKeywords) {
-        scoreKeywordMatch(keyword, true);
-    }
-
-    // Bonus for matching multiple different keywords
-    if (matchedKeywordsCount >= 2) score += 2;
-
-    if (matchedKeywordsCount >= 3) score += 2;
-
-    return {
-        score,
-        matchedKeywordsCount
-    };
-};
-
-const getKeywordRetrievalScores = async (message) => {
-    const queryIntent = await interpretQueryForRetrieval(message);
-
-    const { includeKeywords, excludeKeywords, searchMode } = queryIntent;
-
-    const allActiveBooks = await booksRepo.getAllActive();
-
-    if (allActiveBooks.length === 0) return { items: [], usedFallback: false, searchMode };
-
-    if (includeKeywords.length === 0 && excludeKeywords.length === 0) {
-        return {
-            items: allActiveBooks.map(book => ({
-                book,
-                keywordScore: 0,
-                matchedKeywordsCount: 0
-            })),
-            usedFallback: true,
-            searchMode
-        };
-    }
-
-    const scoredBooks = allActiveBooks.map(book => {
-        const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, includeKeywords, excludeKeywords);
-
-        return {
-            book,
-            keywordScore: score,
-            matchedKeywordsCount
-        };
-    });
-
-    const hasAnyKeywordMatch = scoredBooks.some(item => item.keywordScore > 0);
-
-    return { items: scoredBooks, usedFallback: !hasAnyKeywordMatch, searchMode };
-};
-
-
-const buildBookEmbeddingText = (book) => {
-    return `
-        Title: ${book.title}
-        Author: ${book.author || "Unknown"}
-        Description: ${book.description || "No description available"}
-    `;
-};
-
-const createEmbedding = async (text) => {
-    const response = await gemini.models.embedContent({
-        model: 'gemini-embedding-001',
-        contents: text
-    });
-
-    return response.embeddings[0].values;
-};
-
 const generateBookEmbedding = async (bookId) => {
     const book = await booksRepo.getById(bookId);
 
@@ -266,7 +27,7 @@ const generateBookEmbedding = async (bookId) => {
     if (!book.description) throw new AppError("This book does not have enough content for embedding.", 400);
 
     const embeddingText = buildBookEmbeddingText(book);
-    const embedding = await createEmbedding(embeddingText);
+    const embedding = await createEmbedding(gemini, embeddingText);
 
     await booksRepo.update(bookId, { aiEmbedding: embedding });
 
@@ -278,6 +39,7 @@ const generateBookEmbedding = async (bookId) => {
     };
 };
 
+
 const generateEmbeddingsForAllBooks = async () => {
     const books = await booksRepo.getAllActive();
 
@@ -285,112 +47,12 @@ const generateEmbeddingsForAllBooks = async () => {
         if (!book.description) continue;
 
         const embeddingText = buildBookEmbeddingText(book);
-        const embedding = await createEmbedding(embeddingText);
+        const embedding = await createEmbedding(gemini, embeddingText);
 
         await booksRepo.update(book.id, { aiEmbedding: embedding });
     }
 
     return { success: true };
-};
-
-const cosineSimilarity = (a, b) => {
-    if (!a || !b || a.length !== b.length) return 0;
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-        dotProduct += a[i] * b[i];
-        normA += a[i] * a[i];
-        normB += b[i] * b[i];
-    }
-
-    if (normA === 0 || normB === 0) return 0;
-
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));  // This normalizes the result so it’s always between -1 → 1
-};
-
-const getEmbeddingRetrievalScores = async (message) => {
-    const allActiveBooks = await booksRepo.getAllActive();
-
-    if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
-
-    const queryEmbedding = await createEmbedding(message.trim());
-
-    const scoredBooks = allActiveBooks.map(book => ({
-        book,
-        similarity: Array.isArray(book.aiEmbedding) && book.aiEmbedding.length > 0 ? cosineSimilarity(queryEmbedding, book.aiEmbedding) : 0
-    }));
-
-    const hasAnyEmbedding = scoredBooks.some(item => item.similarity > 0);
-
-    return { items: scoredBooks, usedFallback: !hasAnyEmbedding };
-};
-
-
-const retrieveCandidateBooksHybrid = async (message) => {
-    const keywordResult = await getKeywordRetrievalScores(message);
-    const embeddingResult = await getEmbeddingRetrievalScores(message);
-
-    if (keywordResult.items.length === 0 || embeddingResult.items.length === 0) return { items: [], usedFallback: false };
-
-    const embeddingMap = new Map(
-        embeddingResult.items.map(item => [item.book.id, item.similarity])
-    );
-
-    const maxKeywordScore = Math.max(...keywordResult.items.map(item => Math.max(item.keywordScore, 0)), 1);
-
-    const hybridBooks = keywordResult.items.map(item => {
-        const similarity = embeddingMap.get(item.book.id) || 0;
-
-        const normalizedKeywordScore = Math.max(item.keywordScore, 0) / maxKeywordScore;
-
-        const keywordWeight = 0.6;
-        const semanticWeight = 0.4;
-
-        const hybridScore = (normalizedKeywordScore * keywordWeight) + (similarity * semanticWeight);
-
-        console.log({
-            title: item.book.title,
-            keywordScore: item.keywordScore,
-            normalizedKeywordScore,
-            matchedKeywordsCount: item.matchedKeywordsCount,
-            similarity,
-            hybridScore
-        });
-
-        return {
-            book: item.book,
-            keywordScore: item.keywordScore,
-            matchedKeywordsCount: item.matchedKeywordsCount,
-            similarity,
-            hybridScore
-        }
-    })
-        .sort((a, b) => {
-            if (b.hybridScore !== a.hybridScore) return b.hybridScore - a.hybridScore;
-            if (b.keywordScore !== a.keywordScore) return b.keywordScore - a.keywordScore;
-            return b.similarity - a.similarity;
-        });
-
-    const searchMode = keywordResult.searchMode || "focused";
-
-    const MIN_BASE_HYBRID_SCORE = searchMode === "broad" ? 0.18 : 0.25;
-    const dynamicRatio = searchMode === "broad" ? 0.4 : 0.5;   // Keep books that are at least X% as good as the best one
-
-    const topScore = hybridBooks[0]?.hybridScore || 0;
-    const dynamicThreshold = Math.max(MIN_BASE_HYBRID_SCORE, topScore * dynamicRatio);
-
-
-    const filteredHybridBooks = hybridBooks.filter(item => item.hybridScore >= dynamicThreshold);
-
-    const noStrongHybridMatches = filteredHybridBooks.length === 0;
-    const bothRetrieversFallback = keywordResult.usedFallback === true && embeddingResult.usedFallback === true;
-
-    const usedFallback = bothRetrieversFallback || noStrongHybridMatches;
-
-    return { items: usedFallback ? hybridBooks : filteredHybridBooks.slice(0, 10), usedFallback };
 };
 
 
@@ -605,9 +267,24 @@ const recommendBooksByBookId = async (bookId) => {
 
 
 const chatWithBookstore = async (userId, message) => {
-    const retrievalResult = await retrieveCandidateBooksHybrid(message);
-    const retrievedBooks = retrievalResult.items;
-    const usedFallback = retrievalResult.usedFallback;
+    // Get data
+    const allActiveBooks = await booksRepo.getAllActive();
+
+    // Understand query (LLM)
+    const queryIntent = await interpretQueryForRetrieval(gemini, message);
+
+    // Create embedding (vector)
+    const queryEmbedding = await createEmbedding(gemini, message.trim());
+
+    // Retrieval (pure logic)
+    const keywordResult = getKeywordRetrievalScores(allActiveBooks, queryIntent);
+    const embeddingResult = getEmbeddingRetrievalScores(allActiveBooks, queryEmbedding);
+
+    // Fusion
+    const hybridResult = retrieveCandidateBooksHybrid(keywordResult, embeddingResult);
+
+    const retrievedBooks = hybridResult.items;
+    const usedFallback = hybridResult.usedFallback;
 
     const books = retrievedBooks.map(item => item.book);
 

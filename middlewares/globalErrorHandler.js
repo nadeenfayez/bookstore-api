@@ -1,9 +1,9 @@
-const { mode } = require("../configs/envConfigs");
+const { nodeEnv } = require("../configs/envConfigs");
 
 const globalErrorHandler = (err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    if (mode === "DEV") return res.status(statusCode).json({
+    if (nodeEnv === "development") return res.status(statusCode).json({
         success: false,
         error: {
             message,

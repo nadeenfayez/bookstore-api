@@ -15,7 +15,7 @@ const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const clientUrl = process.env.CLIENT_URL;
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const redisUrl = process.env.REDIS_URL;
-const mode = process.env.MODE;
+const nodeEnv = process.env.NODE_ENV;
 const mongoURI = process.env.MONGO_URI;
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const DBType = process.env.DB_TYPE;
@@ -37,7 +37,7 @@ module.exports = {
     clientUrl,
     geminiApiKey,
     redisUrl,
-    mode,
+    nodeEnv,
     mongoURI,
     googleClientId,
     DBType
