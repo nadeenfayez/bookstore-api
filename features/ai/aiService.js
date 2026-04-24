@@ -57,6 +57,29 @@ const chatResponseSchema = {
     required: ["answer", "matchedBookIds"]
 };
 
+const queryInterpretationSchema = {
+    type: Type.OBJECT,
+    properties: {
+        includeKeywords: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.STRING
+            }
+        },
+        excludeKeywords: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.STRING
+            }
+        },
+        searchMode: {
+            type: Type.STRING,
+            enum: ["focused", "broad"]
+        }
+    },
+    required: ["includeKeywords", "excludeKeywords", "searchMode"]
+};
+
 
 const tokenizer = new natural.WordTokenizer();
 const stemmer = natural.PorterStemmer;
@@ -77,12 +100,62 @@ const normalizeAndTokenize = (text) => {
     return filteredTokens.map(token => stemmer.stem(token));
 };
 
-const extractKeywords = (message) => {
-    return normalizeAndTokenize(message);
+
+const interpretQueryForRetrieval = async (message) => {
+    const prompt = `
+    You are helping a bookstore retrieval system understand a user's search intent.
+
+    Your task:
+    - Extract the main topics the user wants into includeKeywords
+    - Extract the topics the user does NOT want into excludeKeywords
+    - Choose searchMode:
+    - "focused" if the request is specific
+    - "broad" if the request is vague or exploratory
+
+    Rules:
+    - Return only a JSON object
+    - Do not include markdown
+    - Keep keywords short and useful for search
+    - Do not include filler words
+    - If there are no exclusions, return an empty excludeKeywords array
+
+    User message:
+    ${message.trim()}
+    `;
+
+
+    const response = await gemini.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: queryInterpretationSchema
+        }
+    });
+
+    const rawText = response?.text?.trim();
+
+    let parsed;
+
+    try {
+        parsed = JSON.parse(rawText);
+    }
+    catch {
+        throw new AppError("AI returned an invalid query interpretation format.", 500);
+    }
+
+    if (!parsed?.includeKeywords || !Array.isArray(parsed?.includeKeywords) || !parsed?.excludeKeywords || !Array.isArray(parsed?.excludeKeywords) || !parsed?.searchMode || typeof parsed?.searchMode !== "string") {
+        throw new AppError("AI returned an invalid query interpretation structure.", 500);
+    }
+
+    return {
+        includeKeywords: parsed.includeKeywords.map(keyword => normalizeAndTokenize(keyword)).flat(),
+        excludeKeywords: parsed.excludeKeywords.map(keyword => normalizeAndTokenize(keyword)).flat(),
+        searchMode: parsed.searchMode
+    };
 };
 
-
-const scoreBookAgainstKeywords = (book, keywords) => {
+const scoreBookAgainstKeywords = (book, includeKeywords, excludeKeywords) => {
     let score = 0;
     let matchedKeywordsCount = 0;
 
@@ -90,23 +163,33 @@ const scoreBookAgainstKeywords = (book, keywords) => {
     const authorTokens = normalizeAndTokenize(book.author);
     const descriptionTokens = normalizeAndTokenize(book.description);
 
-    for (const keyword of keywords) {
+    const scoreKeywordMatch = (keyword, isNegative = false) => {
         let keywordMatched = false;
 
         if (titleTokens.includes(keyword)) {
-            score += 3;
             keywordMatched = true;
-        }
-        if (descriptionTokens.includes(keyword)) {
-            score += 2;
-            keywordMatched = true;
-        }
-        if (authorTokens.includes(keyword)) {
-            score += 1;
-            keywordMatched = true;
+            score += isNegative ? -3 : +3;
         }
 
-        if (keywordMatched) matchedKeywordsCount += 1;
+        if (descriptionTokens.includes(keyword)) {
+            keywordMatched = true;
+            score += isNegative ? -2 : +2;
+        }
+
+        if (authorTokens.includes(keyword)) {
+            keywordMatched = true;
+            score += isNegative ? -1 : +1;
+        }
+
+        if (keywordMatched && !isNegative) matchedKeywordsCount += 1;
+    };
+
+    for (const keyword of includeKeywords) {
+        scoreKeywordMatch(keyword, false);
+    }
+
+    for (const keyword of excludeKeywords) {
+        scoreKeywordMatch(keyword, true);
     }
 
     // Bonus for matching multiple different keywords
@@ -121,25 +204,28 @@ const scoreBookAgainstKeywords = (book, keywords) => {
 };
 
 const getKeywordRetrievalScores = async (message) => {
-    const keywords = extractKeywords(message);
+    const queryIntent = await interpretQueryForRetrieval(message);
+
+    const { includeKeywords, excludeKeywords, searchMode } = queryIntent;
 
     const allActiveBooks = await booksRepo.getAllActive();
 
-    if (allActiveBooks.length === 0) return { items: [], usedFallback: false };
+    if (allActiveBooks.length === 0) return { items: [], usedFallback: false, searchMode };
 
-    if (keywords.length === 0) {
+    if (includeKeywords.length === 0 && excludeKeywords.length === 0) {
         return {
             items: allActiveBooks.map(book => ({
                 book,
                 keywordScore: 0,
                 matchedKeywordsCount: 0
             })),
-            usedFallback: true
+            usedFallback: true,
+            searchMode
         };
     }
 
     const scoredBooks = allActiveBooks.map(book => {
-        const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, keywords);
+        const { score, matchedKeywordsCount } = scoreBookAgainstKeywords(book, includeKeywords, excludeKeywords);
 
         return {
             book,
@@ -150,7 +236,7 @@ const getKeywordRetrievalScores = async (message) => {
 
     const hasAnyKeywordMatch = scoredBooks.some(item => item.keywordScore > 0);
 
-    return { items: scoredBooks, usedFallback: !hasAnyKeywordMatch };
+    return { items: scoredBooks, usedFallback: !hasAnyKeywordMatch, searchMode };
 };
 
 
@@ -287,16 +373,14 @@ const retrieveCandidateBooksHybrid = async (message) => {
             return b.similarity - a.similarity;
         });
 
-    const MIN_BASE_HYBRID_SCORE = 0.25;
-    const dynamicRatio = 0.45;   // Keep books that are at least X% as good as the best one
+    const searchMode = keywordResult.searchMode || "focused";
+
+    const MIN_BASE_HYBRID_SCORE = searchMode === "broad" ? 0.18 : 0.25;
+    const dynamicRatio = searchMode === "broad" ? 0.4 : 0.5;   // Keep books that are at least X% as good as the best one
 
     const topScore = hybridBooks[0]?.hybridScore || 0;
     const dynamicThreshold = Math.max(MIN_BASE_HYBRID_SCORE, topScore * dynamicRatio);
 
-    console.log({
-        topScore,
-        dynamicThreshold
-    });
 
     const filteredHybridBooks = hybridBooks.filter(item => item.hybridScore >= dynamicThreshold);
 
